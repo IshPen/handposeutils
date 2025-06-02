@@ -99,6 +99,9 @@ class HandPoseVisualizer:
         self.geometry.append(geometry)
 
     def return_geometry(self):
+        """
+        :return: visualizer geometry
+        """
         return self.geometry
 
     def set_landmark_points(self, points_array):
