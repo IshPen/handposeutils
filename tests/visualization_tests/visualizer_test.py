@@ -45,10 +45,11 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.8) a
         # frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
         if results.multi_hand_landmarks:
+            print(results.multi_hand_landmarks)
             viz.read_multi_landmarks(results.multi_hand_landmarks)
             viz.show_pose(finger_tips_shown=True, ligaments_shown=True, palm_shown=True)
             print(viz.return_landmark_points())
-            
+
         # cv2.imshow("K", frame)
         # if cv2.waitKey(5) & 0xFF == ord("q"):
         #     break

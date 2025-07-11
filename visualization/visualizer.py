@@ -200,7 +200,7 @@ class HandPoseVisualizer:
                 palm_2d = palm_points[:, :2]
 
                 # Create convex hull in 2D to find palm outline
-                hull = ConvexHull(palm_2d)
+                hull = ConvexHull(palm_2d, qhull_options='QJ')
                 hull_indices = hull.vertices
                 hull_triangles = []
 
