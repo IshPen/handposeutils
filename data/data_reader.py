@@ -5,14 +5,13 @@ from .handpose import HandPose
 from .handpose_sequence import HandPoseSequence, TimedHandPose
 from .coordinate import Coordinate
 from .constants import POINTS_NAMES_LIST, FINGER_MAPPING
-from mediapipe.framework.formats import landmark_pb2
 
 ## The DataReader class for
 # I highkey don't think you'll ever need to convert from OpenPose to HandPoses,
 # but I somehow found myself in a situation where I did.
 # Thus, I implemented the OpenPose conversions.
-# Functions are self explanatory.
-# TODO: Create unified json structure.
+# However, json conversions are considered standard format for transfer and storage.
+# Functions are selfexplanatory.
 
 class DataReader:
     # --- MediaPipe Conversion ---
@@ -69,3 +68,86 @@ class DataReader:
                 "z": coord.z
             })
         return pd.DataFrame(data)
+
+    # --- JSON Conversion ---
+
+    @staticmethod
+    def convert_json_to_HandPose(json_data: Dict[str, Any]) -> HandPose:
+        side = json_data.get("side", "right_hand")
+        landmarks = json_data["landmarks"]
+        coords = [Coordinate(pt["x"], pt["y"], pt["z"]) for pt in landmarks]
+        return HandPose(coords, side)
+
+    @staticmethod
+    def export_HandPose_to_json(pose: HandPose) -> Dict:
+        '''
+        {
+          "side": "right_hand",
+          "landmarks": [
+            { "x": 0.1, "y": 0.2, "z": 0.0, "name": "WRIST", "finger": "PALM" },
+            { "x": 0.15, "y": 0.22, "z": 0.0, "name": "THUMB_CMC", "finger": "THUMB" },
+            ...
+          ]
+        }
+        '''
+        data = {
+            "side": pose.side,
+            "landmarks": []
+        }
+        for i in range(21):
+            coord = pose[i]
+            data["landmarks"].append({
+                "x": coord.x,
+                "y": coord.y,
+                "z": coord.z,
+                "name": POINTS_NAMES_LIST[i],
+                "finger": pose.points[i]["finger"]
+            })
+        return data
+
+    @staticmethod
+    def convert_json_to_HandPoseSequence(json_data: Dict[str, Any]) -> HandPoseSequence:
+        '''
+        :param json_data:
+        :return:
+        '''
+
+        '''
+        {
+          "sequence": [
+            {
+              "start_time": 0.0,
+              "end_time": 0.033,
+              "pose": { ... }  // HandPose JSON -- reference convert_HandPose_to_json
+            },
+            {
+              "start_time": 0.033,
+              "end_time": 0.066,
+              "pose": { ... }
+            }
+          ]
+        }
+
+        '''
+        sequence = []
+        for item in json_data["sequence"]:
+            pose = DataReader.convert_json_to_HandPose(item["pose"])
+            sequence.append(TimedHandPose(
+                pose=pose,
+                start_time=item["start_time"],
+                end_time=item["end_time"]
+            ))
+        return HandPoseSequence(sequence)
+
+    @staticmethod
+    def export_HandPoseSequence_to_json(sequence: HandPoseSequence) -> Dict:
+        return {
+            "sequence": [
+                {
+                    "start_time": tp.start_time,
+                    "end_time": tp.end_time,
+                    "pose": DataReader.export_HandPose_to_json(tp.pose)
+                }
+                for tp in sequence.sequence
+            ]
+        }
