@@ -1,40 +1,32 @@
-import cv2
-import mediapipe as mp
+import json
 from data.data_reader import DataReader
+from visualization.visualized_pose import VisualizedPose
 from visualization.visualizer import HandPoseVisualizer
 
-reader = DataReader()
-viz = HandPoseVisualizer()
+def main(json_path):
+    # Load saved HandPose JSON
+    with open(json_path, 'r') as f:
+        pose_data = json.load(f)
 
-mp_hands = mp.solutions.hands
-cam = cv2.VideoCapture(0)
+    # Convert to HandPose and then to VisualizedPose
+    base_pose = DataReader.convert_json_to_HandPose(pose_data)
+    vis_pose = VisualizedPose(base_pose.get_all_coordinates(), base_pose.side)
+    vis_pose.annotate("Loaded from JSON")
+    vis_pose.setColorScheme(
+        fingers=[(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)],
+        palm=(1.0, 1.0, 0.0),
+        landmarks=(0.2, 0.8, 0.8)
+    )
+    vis_pose.setOpacity(1.0)
+    vis_pose.highlight("ring", (1.0, 1.0, 0.0))  # Optional highlight
 
-hand_pose = None
+    # Visualize
+    visualizer = HandPoseVisualizer()
+    visualizer.set_hand_poses([vis_pose])
+    visualizer.show_pose()
 
-with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.8) as hands:
-    while cam.isOpened():
-        success, frame = cam.read()
-        if not success:
-            continue
+    input("Press Enter to close window...")
+    visualizer.close()
 
-        frame = cv2.cvtColor(cv2.flip(frame, 1), cv2.COLOR_BGR2RGB)
-        results = hands.process(frame)
-
-        if results.multi_hand_landmarks:
-            for landmark, hand_label in zip(results.multi_hand_landmarks, results.multi_handedness):
-                side = hand_label.classification[0].label.lower()  # "left" or "right"
-                new_pose = DataReader.convert_mediapipe_to_HandPose(landmark, handedness=side)
-                print(side)
-
-                hand_pose = new_pose
-                viz.set_hand_poses([hand_pose])
-
-            viz.show_pose(finger_tips_shown=True, ligaments_shown=True, palm_shown=True)
-            print("HandPose: ", hand_pose)
-            print("Hand Side: ", hand_pose.get_handedness())
-
-        if cv2.waitKey(5) & 0xFF == ord("q"):
-            break
-
-cam.release()
-viz.close()
+if __name__ == "__main__":
+    main("poses/shocker.json")
