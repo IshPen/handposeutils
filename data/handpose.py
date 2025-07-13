@@ -1,5 +1,5 @@
 from typing import List, Literal, Dict
-from coordinate import Coordinate
+from .coordinate import Coordinate
 from .constants import POINTS_NAMES_LIST, FINGER_MAPPING
 
 class HandPose:
@@ -30,6 +30,9 @@ class HandPose:
 
     def get_all_coordinates(self) -> List[Coordinate]:
         return [self.points[i]["coordinate"] for i in range(21)]
+
+    def get_handedness(self) -> Literal["left_hand", "right_hand"]:
+        return self.side
 
     def __str__(self):
         return f"<HandPose {self.side}, {len(self.points)} landmarks>"

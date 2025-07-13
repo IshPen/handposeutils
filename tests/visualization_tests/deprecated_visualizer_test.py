@@ -1,12 +1,18 @@
+'''
+DeprecatedHandPoseVisualizer showing direct reading from MediaPipe live reading
+Use the HandPoseVisualizer object instead
+'''
+
+
+
 import numpy as np
 import cv2
 import sys
 import os
 
-# Add the parent directory to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from visualization.visualizer import HandPoseVisualizer
+from visualization.visualizer import DeprecatedHandPoseVisualizer
 import mediapipe as mp
 
 mp_hands = mp.solutions.hands
@@ -15,7 +21,7 @@ mp_drawing = mp.solutions.drawing_utils
 # Random pose for demo
 pose = np.random.rand(21, 3) * 0.2
 
-viz = HandPoseVisualizer()
+viz = DeprecatedHandPoseVisualizer()
 COLORS = {
     "landmarks": [1, 0, 0],
     "proximals": [0.5,0,1],

@@ -1,8 +1,144 @@
 import open3d as o3d
 import numpy as np
+import threading
+import time
 from scipy.spatial import ConvexHull
 
+# handpose_visualizer.py
+import open3d as o3d
+import numpy as np
+import threading
+import time
+
 class HandPoseVisualizer:
+    def __init__(self, window_name="Hand Pose Visualizer", color_profile: dict = None):
+        self.window_name = window_name
+        self.vis = o3d.visualization.Visualizer()
+        self.vis.create_window(window_name=self.window_name)
+        self.hand_poses = []  # List of HandPose or VisualizedHandPose
+        self.geometry = []
+
+        self.FINGERS = {
+            "thumb": [1, 2, 3, 4],
+            "index": [5, 6, 7, 8],
+            "middle": [9, 10, 11, 12],
+            "ring": [13, 14, 15, 16],
+            "pinky": [17, 18, 19, 20]
+        }
+
+        self.COLORS_DEFAULT = {
+            "landmarks": [0.1, 0.6, 0.9],
+            "proximals": [0.5, 0, 1],
+            "intermediates": [0, 1, 0.5],
+            "distals": [0, 0.5, 1],
+            "palm": [1, 1, 0],
+        }
+
+        self.colors = self.COLORS_DEFAULT if color_profile is None else color_profile
+
+    def set_hand_poses(self, hand_pose_list):
+        """Replaces the list of tracked hand poses."""
+        self.hand_poses = hand_pose_list
+
+    def set_colors(self, colors: dict):
+        self.colors = colors
+
+    def __create_sphere(self, center, radius=1.0, color=None):
+        sphere = o3d.geometry.TriangleMesh.create_sphere(radius)
+        sphere.translate(center)
+        sphere.paint_uniform_color(color or self.colors["landmarks"])
+        return sphere
+
+    def __create_cylinder_between(self, p1, p2, radius=0.8, resolution=20, color=[1, 0, 0]):
+        p1 = np.array(p1, dtype=np.float64)
+        p2 = np.array(p2, dtype=np.float64)
+        axis = p2 - p1
+        length = np.linalg.norm(axis)
+        if length == 0:
+            return None
+        axis /= length
+
+        # Default cylinder along Z-axis
+        cylinder = o3d.geometry.TriangleMesh.create_cylinder(radius=radius, height=length, resolution=resolution)
+        cylinder.paint_uniform_color(color)
+
+        # Rotate cylinder to align with axis
+        z_axis = np.array([0, 0, 1])
+        v = np.cross(z_axis, axis)
+        c = np.dot(z_axis, axis)
+        if np.linalg.norm(v) < 1e-6:
+            R = np.eye(3) if c > 0 else -np.eye(3)
+        else:
+            skew = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+            R = np.eye(3) + skew + skew @ skew * ((1 - c) / (np.linalg.norm(v) ** 2))
+        cylinder.rotate(R, center=(0, 0, 0))
+
+        # Translate to midpoint
+        midpoint = (p1 + p2) / 2
+        cylinder.translate(midpoint)
+        return cylinder
+
+    def show_pose(self, finger_tips_shown=True, ligaments_shown=True, palm_shown=True):
+        self.vis.clear_geometries()
+        self.geometry.clear()
+
+        temp_finger_colors_array = [
+            self.colors["proximals"],
+            self.colors["intermediates"],
+            self.colors["distals"]
+        ]
+
+        for hand_pose in self.hand_poses:
+            coords = hand_pose.get_all_coordinates()
+            landmark_points = np.array([[pt.x, pt.y, pt.z] for pt in coords])
+
+            # Landmarks
+            if finger_tips_shown:
+                for pt in landmark_points:
+                    self.geometry.append(self.__create_sphere(pt))
+
+            # Ligaments
+            if ligaments_shown:
+                for finger_name, indices in self.FINGERS.items():
+                    for i in range(len(indices) - 1):
+                        p1 = landmark_points[indices[i]]
+                        p2 = landmark_points[indices[i + 1]]
+                        cyl = self.__create_cylinder_between(p1, p2, radius=0.8, color=temp_finger_colors_array[i])
+                        if cyl:
+                            self.geometry.append(cyl)
+
+            # Palm Mesh
+            if palm_shown:
+                palm_indices = [0, 1, 5, 9, 13, 17]
+                palm_points = landmark_points[palm_indices]
+                hull = ConvexHull(palm_points[:, :2], qhull_options='QJ')
+                hull_indices = hull.vertices
+
+                triangles = []
+                for i in range(1, len(hull_indices) - 1):
+                    triangles.append([hull_indices[0], hull_indices[i], hull_indices[i + 1]])
+
+                mesh = o3d.geometry.TriangleMesh()
+                mesh.vertices = o3d.utility.Vector3dVector(palm_points)
+                mesh.triangles = o3d.utility.Vector3iVector(triangles)
+                mesh.paint_uniform_color([0, 0, 1])
+                mesh.compute_vertex_normals()
+                self.geometry.append(mesh)
+
+        for g in self.geometry:
+            self.vis.add_geometry(g)
+
+        self.vis.poll_events()
+        self.vis.update_renderer()
+
+    def close(self):
+        try:
+            self.vis.destroy_window()
+        except Exception as e:
+            raise e
+
+
+class DeprecatedHandPoseVisualizer:
     def __init__(self, window_name="Hand Pose Visualizer", color_profile: dict = None):
         self.window_name = window_name
         self.vis = o3d.visualization.Visualizer()

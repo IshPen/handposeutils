@@ -1,4 +1,3 @@
-import json
 import pandas as pd
 from typing import List, Dict, Any
 from .handpose import HandPose
@@ -16,9 +15,17 @@ from .constants import POINTS_NAMES_LIST, FINGER_MAPPING
 class DataReader:
     # --- MediaPipe Conversion ---
     @staticmethod
-    def convert_mediapipe_to_HandPose(mp_landmarks, side: str = "right_hand") -> HandPose:
-        coords = [Coordinate(lm.x, lm.y, lm.z) for lm in mp_landmarks.landmark]
-        return HandPose(coords, side)
+    def convert_mediapipe_to_HandPose(mp_landmarks, handedness: str = None) -> HandPose:
+        SCALE = 100  # scale 0–1 coordinates to 0–100 units
+        coords = [Coordinate(lm.x * SCALE, (1-lm.y) * SCALE, lm.z * SCALE) for lm in mp_landmarks.landmark]
+
+        match str(handedness):
+            case "left":
+                return HandPose(coords, "left_hand")
+            case "right":
+                return HandPose(coords, "right_hand")
+        return HandPose(coords, None)
+
 
     @staticmethod
     def convert_HandPose_to_mediapipe(pose: HandPose):
@@ -32,7 +39,7 @@ class DataReader:
     # --- OpenPose Conversion ---
 
     @staticmethod
-    def convert_openpose_to_HandPose(openpose_data: List[float], side="right_hand") -> HandPose:
+    def convert_openpose_to_HandPose(openpose_data: List[float], side=None) -> HandPose:
         # OpenPose flat format: [x0, y0, c0, x1, y1, c1, ...]
         coords = []
         for i in range(21):
