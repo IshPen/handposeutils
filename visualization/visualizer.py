@@ -1,6 +1,9 @@
 import open3d as o3d
 import numpy as np
 from scipy.spatial import ConvexHull
+import time
+
+# TODO: fix hand pose duplication issue
 
 class HandPoseVisualizer:
     def __init__(self, window_name="Hand Pose Visualizer", color_profile: dict = None):
@@ -10,6 +13,11 @@ class HandPoseVisualizer:
 
         self.hand_poses = []
         self.geometry = []
+
+        self.landmark_spheres = []  # List of list[Mesh] — one sublist per hand
+        self.ligament_cylinders = []  # List of list[Mesh]
+        self.palm_meshes = []  # List[Mesh] — one palm mesh per hand
+        self.cache_initialized = False
 
         self.FINGERS = {
             "thumb": [1, 2, 3, 4],
@@ -35,18 +43,21 @@ class HandPoseVisualizer:
             self.window_created = True
 
     def set_hand_poses(self, hand_pose_list):
+        if len(self.hand_poses) != len(hand_pose_list):
+            self.cache_initialized = False
         self.hand_poses = hand_pose_list
+
 
     def set_colors(self, colors: dict):
         self.colors = colors
 
-    def __create_sphere(self, center, radius=1.0, color=None):
-        sphere = o3d.geometry.TriangleMesh.create_sphere(radius)
+    def __create_sphere(self, center, radius=1.0, resolution=5, color=None):
+        sphere = o3d.geometry.TriangleMesh.create_sphere(radius, resolution=resolution)
         sphere.translate(center)
         sphere.paint_uniform_color(color or self.colors["landmarks"])
         return sphere
 
-    def __create_cylinder_between(self, p1, p2, radius=0.8, resolution=20, color=[1, 0, 0]):
+    def __create_cylinder_between(self, p1, p2, radius=0.8, resolution=5, color=[1, 0, 0]):
         p1 = np.array(p1, dtype=np.float64)
         p2 = np.array(p2, dtype=np.float64)
         axis = p2 - p1
@@ -135,28 +146,156 @@ class HandPoseVisualizer:
 
     def show_pose(self, finger_tips_shown=True, ligaments_shown=True, palm_shown=True):
         self.initialize_window()
-        self._build_geometry(finger_tips_shown, ligaments_shown, palm_shown)
-        for g in self.geometry:
-            self.vis.add_geometry(g)
+
+        if not self.hand_poses:
+            print("[!] No pose to show.")
+            return
+
+        self.build_cached_geometry(self.hand_poses[0])
 
         print("[🖱️] Use left mouse to rotate, right mouse to pan, scroll to zoom. Press 'q' to quit.")
         self.vis.run()
         self.vis.destroy_window()
 
     def update_pose(self, finger_tips_shown=True, ligaments_shown=True, palm_shown=True):
-        self.initialize_window()
-        self.vis.clear_geometries()
-        self._build_geometry(finger_tips_shown, ligaments_shown, palm_shown)
-        for g in self.geometry:
-            self.vis.add_geometry(g)
-        self.vis.poll_events()
-        self.vis.update_renderer()
+        if not self.hand_poses:
+            return
+
+        if not self.cache_initialized:
+            self.build_cached_geometry(self.hand_poses)
+
+        self.update_cached_geometry(self.hand_poses)
 
     def close(self):
         try:
             self.vis.destroy_window()
         except Exception as e:
             raise e
+
+    def play_sequence(self, hand_pose_sequence, fps=30, loop=False):
+        self.initialize_window()
+        frame_duration = 1.0 / fps
+        index = 0
+
+        print(f"[▶️] Playing sequence at {fps} FPS...")
+
+        # === Build geometry from the first pose ===
+        if len(hand_pose_sequence) == 0:
+            print("[!] Empty sequence.")
+            return
+
+        first_pose = hand_pose_sequence[0].pose
+        self.build_cached_geometry(first_pose)
+
+        try:
+            while True:
+                if index >= len(hand_pose_sequence):
+                    if loop:
+                        index = 0
+                    else:
+                        break
+
+                timed_pose = hand_pose_sequence[index]
+                pose = timed_pose.pose
+
+                self.update_cached_geometry(pose)
+
+                time.sleep(frame_duration)
+                index += 1
+        except KeyboardInterrupt:
+            print("[⏹️] Playback interrupted.")
+
+    def build_cached_geometry(self, hand_poses):
+        self.hand_poses = hand_poses
+        self.landmark_spheres.clear()
+        self.ligament_cylinders.clear()
+        self.palm_meshes.clear()
+
+        for pose in hand_poses:
+            coords = pose.get_all_coordinates()
+            landmark_points = np.array([[pt.x, pt.y, pt.z] for pt in coords])
+
+            # === Landmarks ===
+            hand_spheres = []
+            for pt in landmark_points:
+                sphere = self.__create_sphere(pt, radius=1.0)
+                self.vis.add_geometry(sphere)
+                hand_spheres.append(sphere)
+            self.landmark_spheres.append(hand_spheres)
+
+            # === Ligaments ===
+            hand_cyls = []
+            for finger_name, indices in self.FINGERS.items():
+                for i in range(len(indices) - 1):
+                    p1 = landmark_points[indices[i]]
+                    p2 = landmark_points[indices[i + 1]]
+                    color = self.colors["proximals"] if i == 0 else \
+                        self.colors["intermediates"] if i == 1 else \
+                            self.colors["distals"]
+                    cyl = self.__create_cylinder_between(p1, p2, radius=0.8, color=color)
+                    if cyl:
+                        self.vis.add_geometry(cyl)
+                        hand_cyls.append(cyl)
+            self.ligament_cylinders.append(hand_cyls)
+
+            # === Palm ===
+            palm_indices = [0, 1, 5, 9, 13, 17]
+            palm_points = landmark_points[palm_indices]
+            hull = ConvexHull(palm_points[:, :2], qhull_options='QJ')
+            triangles = [[hull.vertices[0], hull.vertices[i], hull.vertices[i + 1]]
+                         for i in range(1, len(hull.vertices) - 1)]
+
+            mesh = o3d.geometry.TriangleMesh()
+            mesh.vertices = o3d.utility.Vector3dVector(palm_points)
+            mesh.triangles = o3d.utility.Vector3iVector(triangles)
+            mesh.paint_uniform_color(self.colors["palm"])
+            mesh.compute_vertex_normals()
+            self.vis.add_geometry(mesh)
+            self.palm_meshes.append(mesh)
+
+        self.cache_initialized = True
+
+    def update_cached_geometry(self, hand_poses):
+        #if len(hand_poses) != len(self.landmark_spheres):
+        #    self.build_cached_geometry(hand_poses)
+        #    return
+
+        for h_index, pose in enumerate(hand_poses):
+            coords = pose.get_all_coordinates()
+            landmark_points = np.array([[pt.x, pt.y, pt.z] for pt in coords])
+
+            # === Update Landmarks ===
+            for i, pt in enumerate(landmark_points):
+                mesh = o3d.geometry.TriangleMesh.create_sphere(radius=1.0, resolution=5)
+                mesh.translate(pt)
+                self.landmark_spheres[h_index][i].vertices = mesh.vertices
+                self.landmark_spheres[h_index][i].compute_vertex_normals()
+                self.vis.update_geometry(self.landmark_spheres[h_index][i])
+
+            # === Update Ligaments ===
+            lig_index = 0
+            for finger_name, indices in self.FINGERS.items():
+                for i in range(len(indices) - 1):
+                    p1 = landmark_points[indices[i]]
+                    p2 = landmark_points[indices[i + 1]]
+                    new_cyl = self.__create_cylinder_between(p1, p2, radius=0.8, resolution=5)
+                    cyl = self.ligament_cylinders[h_index][lig_index]
+                    cyl.vertices = new_cyl.vertices
+                    cyl.triangles = new_cyl.triangles
+                    cyl.compute_vertex_normals()
+                    self.vis.update_geometry(cyl)
+                    lig_index += 1
+
+            # === Update Palm ===
+            palm_points = landmark_points[[0, 1, 5, 9, 13, 17]]
+            palm = self.palm_meshes[h_index]
+            palm.vertices = o3d.utility.Vector3dVector(palm_points)
+            palm.compute_vertex_normals()
+            self.vis.update_geometry(palm)
+
+        self.vis.poll_events()
+        self.vis.update_renderer()
+
 
 class DeprecatedHandPoseVisualizer:
     def __init__(self, window_name="Hand Pose Visualizer", color_profile: dict = None):
@@ -207,7 +346,7 @@ class DeprecatedHandPoseVisualizer:
         return sphere
 
 
-    def __create_cylinder_between(self, p1, p2, radius=0.8, resolution=20, color=[1, 0, 0]):
+    def __create_cylinder_between(self, p1, p2, radius=0.8, resolution=5, color=[1, 0, 0]):
         """
         :param p1: point 1 (start point of cylinder)
         :param p2: point 2 (end point of cylinder)

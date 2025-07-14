@@ -6,6 +6,7 @@ import json
 from data.data_reader import DataReader
 from visualization.visualizer import HandPoseVisualizer
 import threading
+
 reader = DataReader()
 viz = HandPoseVisualizer()
 
@@ -69,7 +70,7 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.8) a
 
                 current_pose = hand_pose # For the 'save function'
 
-            viz.show_pose(finger_tips_shown=True, ligaments_shown=True, palm_shown=True)
+            viz.update_pose(finger_tips_shown=True, ligaments_shown=True, palm_shown=True)
 
         if should_exit:
             break

@@ -147,14 +147,18 @@ class DataReader:
         return HandPoseSequence(sequence)
 
     @staticmethod
-    def export_HandPoseSequence_to_json(sequence: HandPoseSequence) -> Dict:
+    def convert_HandPoseSequence_to_json(sequence: HandPoseSequence, fps: int = 30) -> Dict:
+        """
+        Converts a HandPoseSequence to a JSON-serializable list of timed poses.
+        """
         return {
+            "fps": fps,
             "sequence": [
                 {
-                    "start_time": tp.start_time,
-                    "end_time": tp.end_time,
-                    "pose": DataReader.export_HandPose_to_json(tp.pose)
+                    "start_time": round(tp.start_time, 4),
+                    "end_time": round(tp.end_time, 4),
+                    "hand_pose": DataReader.export_HandPose_to_json(tp.pose)
                 }
-                for tp in sequence.sequence
+                for tp in sequence
             ]
         }
