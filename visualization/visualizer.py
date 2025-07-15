@@ -42,9 +42,11 @@ class HandPoseVisualizer:
             self.vis.create_window(window_name=self.window_name)
             self.window_created = True
 
+
     def set_hand_poses(self, hand_pose_list):
         if len(self.hand_poses) != len(hand_pose_list):
             self.cache_initialized = False
+            self._reset_geometry()
         self.hand_poses = hand_pose_list
 
 
@@ -144,6 +146,7 @@ class HandPoseVisualizer:
                                                           radius=1.0, color=(1.0, 1.0, 1.0)))
                 print(f"[Annotation] {annotation} @ wrist: {wrist_coord}")
 
+
     def show_pose(self, finger_tips_shown=True, ligaments_shown=True, palm_shown=True):
         self.initialize_window()
 
@@ -151,7 +154,7 @@ class HandPoseVisualizer:
             print("[!] No pose to show.")
             return
 
-        self.build_cached_geometry(self.hand_poses[0])
+        self.build_cached_geometry(self.hand_poses)  # ✅ List of poses!
 
         print("[🖱️] Use left mouse to rotate, right mouse to pan, scroll to zoom. Press 'q' to quit.")
         self.vis.run()
@@ -165,6 +168,13 @@ class HandPoseVisualizer:
             self.build_cached_geometry(self.hand_poses)
 
         self.update_cached_geometry(self.hand_poses)
+
+    def _reset_geometry(self):
+        self.geometry = []
+        self.landmark_spheres = []
+        self.ligament_cylinders = []
+        self.palm_meshes = []
+        self.vis.clear_geometries()
 
     def close(self):
         try:
@@ -185,7 +195,7 @@ class HandPoseVisualizer:
             return
 
         first_pose = hand_pose_sequence[0].pose
-        self.build_cached_geometry(first_pose)
+        self.build_cached_geometry([first_pose])
 
         try:
             while True:
@@ -198,7 +208,7 @@ class HandPoseVisualizer:
                 timed_pose = hand_pose_sequence[index]
                 pose = timed_pose.pose
 
-                self.update_cached_geometry(pose)
+                self.update_cached_geometry([pose])
 
                 time.sleep(frame_duration)
                 index += 1
@@ -206,6 +216,9 @@ class HandPoseVisualizer:
             print("[⏹️] Playback interrupted.")
 
     def build_cached_geometry(self, hand_poses):
+        if not isinstance(hand_poses, list):
+            raise TypeError(f"[Visualizer] Expected list of HandPose, got {type(hand_poses)}")
+
         self.hand_poses = hand_poses
         self.landmark_spheres.clear()
         self.ligament_cylinders.clear()
@@ -256,9 +269,10 @@ class HandPoseVisualizer:
         self.cache_initialized = True
 
     def update_cached_geometry(self, hand_poses):
-        #if len(hand_poses) != len(self.landmark_spheres):
-        #    self.build_cached_geometry(hand_poses)
-        #    return
+        if len(hand_poses) != len(self.landmark_spheres):
+            self._reset_geometry()
+            # self.build_cached_geometry(hand_poses)
+            # return
 
         for h_index, pose in enumerate(hand_poses):
             coords = pose.get_all_coordinates()

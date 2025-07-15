@@ -29,4 +29,4 @@ def main(json_path):
     visualizer.close()
 
 if __name__ == "__main__":
-    main("poses/rock_on.json")
+    main("../calculations_tests/poses/rock_on.json")

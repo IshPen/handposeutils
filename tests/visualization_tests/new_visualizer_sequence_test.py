@@ -20,10 +20,11 @@ def main(json_path):
     hand_sequence = HandPoseSequence(sequence)
 
     visualizer = HandPoseVisualizer()
-    visualizer.play_sequence(hand_sequence, fps=fps, loop=True)
+    loop = False
+    visualizer.play_sequence(hand_sequence, fps=fps, loop=loop)
 
     input("Press Enter to close window...")
     visualizer.close()
 
 if __name__ == "__main__":
-    main("poses/sequence_counting.json")
+    main("../calculations_tests/poses/sequence_counting.json")
