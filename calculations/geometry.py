@@ -108,3 +108,59 @@ def get_finger_spread(pose) -> dict[str, float]:
 
         spread[f"{names[i]}-{names[i+1]}"] = angle
     return spread
+
+def get_hand_aspect_ratio(pose) -> float:
+    """
+    Calculates the aspect ratio (width/height) of the hand in XY plane.
+
+    :return: Float representing width divided by height.
+    """
+    coords = np.array([c.as_tuple() for c in pose.get_all_coordinates()])
+    min_x, max_x = coords[:, 0].min(), coords[:, 0].max()
+    min_y, max_y = coords[:, 1].min(), coords[:, 1].max()
+
+    width = max_x - min_x
+    height = max_y - min_y
+    return width / (height + 1e-6)
+
+def get_pose_flatness(pose, axis='z') -> float:
+    """
+    Measures flatness of the pose as standard deviation along one axis.
+
+    :param axis: Axis to compute flatness along ('x', 'y', or 'z').
+    :return: Float — std deviation along axis; lower = flatter.
+    """
+    coords = np.array([c.as_tuple() for c in pose.get_all_coordinates()])
+    axis_map = {'x': 0, 'y': 1, 'z': 2}
+    return np.std(coords[:, axis_map[axis]])
+
+def get_joint_angle(triplet: tuple[int, int, int], pose) -> float:
+    """
+    Computes the simple internal angle at the middle joint of a 3-point chain.
+
+    :param triplet: Tuple of 3 landmark indices (a, b, c) where b is the joint.
+    :return: Angle at point b in radians.
+    """
+    a, b, c = (pose[i] for i in triplet)
+    v1 = vector_between(b, a)
+    v2 = vector_between(b, c)
+
+    dot = np.dot(v1, v2)
+    norms = np.linalg.norm(v1) * np.linalg.norm(v2)
+    return np.arccos(np.clip(dot / (norms + 1e-6), -1.0, 1.0))
+
+def get_palm_normal_vector(pose) -> np.ndarray:
+    """
+    Returns the palm normal vector using three base landmarks.
+
+    :return: A normalized NumPy 3D vector (wrist–index_mcp × wrist–pinky_mcp).
+    """
+    a = np.array(pose[0].as_tuple())   # Wrist
+    b = np.array(pose[5].as_tuple())   # Index MCP
+    c = np.array(pose[17].as_tuple())  # Pinky MCP
+
+    # Cross product of two vectors from wrist to edges of palm
+    v1 = b - a
+    v2 = c - a
+    normal = np.cross(v1, v2)
+    return normal / (np.linalg.norm(normal) + 1e-6)
