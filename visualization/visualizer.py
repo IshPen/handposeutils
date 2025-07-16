@@ -228,7 +228,7 @@ class HandPoseVisualizer:
             coords = pose.get_all_coordinates()
             landmark_points = np.array([[pt.x, pt.y, pt.z] for pt in coords])
 
-            scale = self.compute_pose_scale(pose)
+            scale = self._compute_pose_scale(pose)
             scale_factor = scale * 0.05  # Tunable coefficient
 
             # === Landmarks ===
@@ -316,7 +316,7 @@ class HandPoseVisualizer:
         self.vis.poll_events()
         self.vis.update_renderer()
 
-    def compute_pose_scale(self, hand_pose):
+    def _compute_pose_scale(self, hand_pose):
         coords = hand_pose.get_all_coordinates()
         min_x = min(c.x for c in coords)
         max_x = max(c.x for c in coords)
@@ -330,6 +330,76 @@ class HandPoseVisualizer:
         range_z = max_z - min_z
 
         return max(range_x, range_y, range_z)  # largest dimension span
+
+    def visualize_pose_similarity(self, pose1, pose2, method='euclidean', offset=False):
+        """
+        Visualize the similarity between two HandPose instances using color-coded landmarks.
+        Per-coordinate similarity doesn't work for Procrustes, since Procrustes is a global similarity score, rather than pairwise.
+
+        :param pose1 (HandPose): First pose (reference).
+        :param pose2 (HandPose): Second pose (to compare).
+        :param method (str): Currently only 'euclidean' is supported.
+        :param offset (bool): Whether to offset the second pose along the x-axis for comparison.
+        """
+        if not pose1 or not pose2:
+            raise ValueError("Both poses must be provided.")
+
+        coords1 = np.array([c.as_tuple() for c in pose1.get_all_coordinates()])
+        coords2 = np.array([c.as_tuple() for c in pose2.get_all_coordinates()])
+
+        if offset:
+            coords2 = coords2 + np.array([0.15, 0.0, 0.0])
+
+        if method == "euclidean":
+            errors = np.linalg.norm(coords1 - coords2, axis=1)
+
+        elif method == "cosine":
+            dot_products = np.sum(coords1 * coords2, axis=1)
+            norms1 = np.linalg.norm(coords1, axis=1)
+            norms2 = np.linalg.norm(coords2, axis=1)
+            cosine_sim = dot_products / (norms1 * norms2 + 1e-6)
+            errors = 1 - cosine_sim  # Error = 1 - similarity
+
+        elif method == "joint_angle":
+            from calculations.similarity import compute_joint_angle_errors
+            joint_errors = compute_joint_angle_errors(pose1, pose2)
+
+            # Map each angle error to its middle joint in the 3-point triplet
+            # Then build a 21-element array with zeros, and inject errors at the joint indices
+            errors = np.zeros(21)
+            angle_joint_indices = [2, 3, 6, 7, 10, 11, 14, 15, 18, 19]  # middle point in each angle triplet
+            for idx, joint_idx in enumerate(angle_joint_indices):
+                errors[joint_idx] = joint_errors[idx]
+
+        else:
+            raise NotImplementedError(f"Method '{method}' is not supported.")
+
+        # === Visualize ===
+        max_error = np.max(errors) + 1e-6
+        self.initialize_window()
+        self.vis.clear_geometries()
+
+        # Pose2 (colored by similarity)
+        for i in range(len(coords2)):
+            color = self.error_to_color(errors[i], max_error)
+            self.vis.add_geometry(self.__create_sphere(coords2[i], radius=0.1, color=color))
+
+        # Pose1 (reference)
+        for pt in coords1:
+            self.vis.add_geometry(self.__create_sphere(pt, radius=0.1, color=(0.2, 0.8, 1.0)))
+
+        print("[HandPoseVisualizer] Comparing poses: red = most different, blue = similar, yellow = identical")
+        print("[HandPoseVisualizer] Use mouse to interact. Press 'q' to quit.")
+        print(f"[HandPoseVisualizer] Similarity visualized using method: {method}")
+        self.vis.run()
+        self.vis.destroy_window()
+
+    def error_to_color(self, error, max_error):
+        """
+        Map error to RGB color. Red = max error, Blue = no error.
+        """
+        ratio = np.clip(error / max_error, 0.0, 1.0)
+        return (ratio, 0.0, 1.0 - ratio)
 
 
 class DeprecatedHandPoseVisualizer:
