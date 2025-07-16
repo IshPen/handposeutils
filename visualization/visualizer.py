@@ -3,8 +3,6 @@ import numpy as np
 from scipy.spatial import ConvexHull
 import time
 
-# TODO: fix hand pose duplication issue
-
 class HandPoseVisualizer:
     def __init__(self, window_name="Hand Pose Visualizer", color_profile: dict = None):
         self.window_name = window_name
@@ -179,6 +177,7 @@ class HandPoseVisualizer:
     def close(self):
         try:
             self.vis.destroy_window()
+            self.window_created = False
         except Exception as e:
             raise e
 
@@ -224,14 +223,20 @@ class HandPoseVisualizer:
         self.ligament_cylinders.clear()
         self.palm_meshes.clear()
 
+
         for pose in hand_poses:
             coords = pose.get_all_coordinates()
             landmark_points = np.array([[pt.x, pt.y, pt.z] for pt in coords])
 
+            scale = self.compute_pose_scale(pose)
+            scale_factor = scale * 0.05  # Tunable coefficient
+
             # === Landmarks ===
             hand_spheres = []
             for pt in landmark_points:
-                sphere = self.__create_sphere(pt, radius=1.0)
+                radius = scale_factor * 1.0  # Was: 1.0
+
+                sphere = self.__create_sphere(pt, radius=radius)
                 self.vis.add_geometry(sphere)
                 hand_spheres.append(sphere)
             self.landmark_spheres.append(hand_spheres)
@@ -245,7 +250,8 @@ class HandPoseVisualizer:
                     color = self.colors["proximals"] if i == 0 else \
                         self.colors["intermediates"] if i == 1 else \
                             self.colors["distals"]
-                    cyl = self.__create_cylinder_between(p1, p2, radius=0.8, color=color)
+                    radius = scale_factor * 0.8  # Was: 0.8
+                    cyl = self.__create_cylinder_between(p1, p2, radius=radius, color=color)
                     if cyl:
                         self.vis.add_geometry(cyl)
                         hand_cyls.append(cyl)
@@ -309,6 +315,21 @@ class HandPoseVisualizer:
 
         self.vis.poll_events()
         self.vis.update_renderer()
+
+    def compute_pose_scale(self, hand_pose):
+        coords = hand_pose.get_all_coordinates()
+        min_x = min(c.x for c in coords)
+        max_x = max(c.x for c in coords)
+        min_y = min(c.y for c in coords)
+        max_y = max(c.y for c in coords)
+        min_z = min(c.z for c in coords)
+        max_z = max(c.z for c in coords)
+
+        range_x = max_x - min_x
+        range_y = max_y - min_y
+        range_z = max_z - min_z
+
+        return max(range_x, range_y, range_z)  # largest dimension span
 
 
 class DeprecatedHandPoseVisualizer:

@@ -1,6 +1,7 @@
 from typing import List, Literal, Dict
 from .coordinate import Coordinate
 from .constants import POINTS_NAMES_LIST, FINGER_MAPPING
+from calculations import transforms
 
 class HandPose:
     def __init__(self, coordinates: List[Coordinate], side: Literal["left_hand", "right_hand"]):
@@ -44,3 +45,21 @@ class HandPose:
             idx = self.get_index_by_common_name(index_or_name)
             return self.get_coordinate_by_index(idx)
         raise TypeError("Index must be int (0–20) or common_name string.")
+
+    def normalize(self) -> "HandPose":
+        return transforms.normalize_handpose(self)
+
+    def normalize_scaling(self) -> "HandPose":
+        return transforms.normalize_handpose_scaling(self)
+
+    def normalize_position(self) -> "HandPose":
+        return transforms.normalize_handpose_positioning(self)
+
+    def mirror(self, axis: Literal['x', 'y', 'z'] = 'x') -> "HandPose":
+        return transforms.mirror_pose(self, axis)
+
+    def rotate(self, degrees: float, axis: Literal['x', 'y', 'z'] = 'z') -> "HandPose":
+        return transforms.rotate_pose_by_axis(self, degrees, axis)
+
+    def straighten_finger(self, finger: str) -> "HandPose":
+        return transforms.straighten_finger(self, finger)

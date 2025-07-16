@@ -27,6 +27,7 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.8) a
                 side = hand_label.classification[0].label.lower()
                 new_pose = DataReader.convert_mediapipe_to_HandPose(landmark, handedness=side)
                 vis_pose = VisualizedPose(new_pose.get_all_coordinates(), new_pose.get_handedness())
+                vis_pose.straighten_finger("middle")
                 vis_pose.annotate(side.upper())
                 vis_pose.highlight("pinky")
                 hand_poses.append(vis_pose)
