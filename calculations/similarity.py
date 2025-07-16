@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Tuple
+from typing import Tuple, List
 from data.handpose import HandPose
 
 def procrustes_alignment(pose1: HandPose, pose2: HandPose) -> Tuple[np.ndarray, np.ndarray, float]:
@@ -9,12 +9,10 @@ def procrustes_alignment(pose1: HandPose, pose2: HandPose) -> Tuple[np.ndarray, 
     This aligns pose1 to pose2 by removing translation, scale, and rotation,
     and returns the aligned poses and their similarity score.
 
-    Parameters:
-        pose1: First HandPose
-        pose2: Second HandPose
+    :param pose1: First HandPose
+    :param pose2: Second HandPose
 
-    Returns:
-        (aligned_pose1, aligned_pose2, distance) — aligned numpy arrays and Procrustes distance
+    :returns (aligned_pose1, aligned_pose2, distance) — aligned numpy arrays and Procrustes distance
     """
 
     # Step 1: Convert HandPoses to N x 3 numpy arrays
@@ -51,6 +49,115 @@ def procrustes_alignment(pose1: HandPose, pose2: HandPose) -> Tuple[np.ndarray, 
 
     return p1_aligned, p2_aligned, distance
 
+def euclidean_distance(pose1: HandPose, pose2: HandPose) -> float:
+    """
+    Compute the mean Euclidean distance between two HandPose objects.
+
+    This is a simple, direct comparison of the spatial distance between
+    each corresponding landmark. Sensitive to translation and scale.
+
+
+    :param pose1: First HandPose.
+    :param pose2: Second HandPose.
+
+    :returns Mean Euclidean distance (float). Lower = more similar.
+    """
+    p1 = np.array([coord.as_tuple() for coord in pose1.get_all_coordinates()])
+    p2 = np.array([coord.as_tuple() for coord in pose2.get_all_coordinates()])
+
+    if p1.shape != p2.shape:
+        raise ValueError(f"Shape mismatch: pose1 has shape {p1.shape}, pose2 has shape {p2.shape}")
+
+    distances = np.linalg.norm(p1 - p2, axis=1)
+    return np.mean(distances)
+
+def cosine_similarity(pose1: HandPose, pose2: HandPose) -> float:
+    """
+    Compute cosine similarity between two HandPose objects.
+
+    Converts poses to flattened 63D vectors (21 landmarks × 3D),
+    then computes angular similarity between them.
+
+    Cosine similarity is scale-invariant but not translation-invariant,
+    so translation is normalized.
+
+    :param pose1: First HandPose.
+    :param pose2: Second HandPose.
+
+    :returns Cosine similarity (float), in [-1, 1]. Higher = more similar. 1 = identical direction.
+    """
+    pose1.normalize_position()
+    pose2.normalize_position()
+
+    vec1 = np.array([c for coord in pose1.get_all_coordinates() for c in coord.as_tuple()])
+    vec2 = np.array([c for coord in pose2.get_all_coordinates() for c in coord.as_tuple()])
+
+    dot = np.dot(vec1, vec2)
+    norm1 = np.linalg.norm(vec1)
+    norm2 = np.linalg.norm(vec2)
+
+    if norm1 == 0 or norm2 == 0:
+        return 0.0  # Cannot compare with a zero vector
+
+    similarity = dot / (norm1 * norm2)
+    return similarity
+
+def _joint_angle_descriptor(pose: HandPose) -> List[float]:
+    """
+    Extract joint angles (in radians) from a hand pose. Angles are measured
+    between consecutive segments in each finger, forming a compact descriptor.
+
+    Returns:
+        List of angles (floats in radians), one for each joint.
+    """
+    angles = []
+    finger_joints = {
+        "thumb": [1, 2, 3, 4],
+        "index": [5, 6, 7, 8],
+        "middle": [9, 10, 11, 12],
+        "ring": [13, 14, 15, 16],
+        "pinky": [17, 18, 19, 20],
+    }
+
+    for finger, indices in finger_joints.items():
+        for i in range(1, len(indices) - 1):
+            a = pose.get_coordinate_by_index(indices[i - 1])
+            b = pose.get_coordinate_by_index(indices[i])
+            c = pose.get_coordinate_by_index(indices[i + 1])
+
+            # Vectors: b→a and b→c
+            v1 = np.array([a.x - b.x, a.y - b.y, a.z - b.z])
+            v2 = np.array([c.x - b.x, c.y - b.y, c.z - b.z])
+
+            # Angle between v1 and v2
+            norm1 = np.linalg.norm(v1)
+            norm2 = np.linalg.norm(v2)
+            if norm1 == 0 or norm2 == 0:
+                angle = 0.0
+            else:
+                cos_angle = np.clip(np.dot(v1, v2) / (norm1 * norm2), -1.0, 1.0)
+                angle = np.arccos(cos_angle)
+
+            angles.append(angle)
+
+    return angles
+
+def joint_angle_similarity(pose1: HandPose, pose2: HandPose) -> float:
+    """
+    Compares two hand poses based on their joint angles (biomechanical similarity).
+    Lower values = more similar poses.
+
+    :returns Mean squared difference between joint angles (float).
+    """
+    angles1 = _joint_angle_descriptor(pose1)
+    angles2 = _joint_angle_descriptor(pose2)
+
+    if len(angles1) != len(angles2):
+        raise ValueError("Angle descriptors must be of same length")
+
+    diff = np.array(angles1) - np.array(angles2)
+    return float(np.mean(diff ** 2))
+
 
 def pose_similarity(pose1: HandPose, pose2: HandPose, method: str = 'procrustes') -> float:
     """
@@ -59,11 +166,17 @@ def pose_similarity(pose1: HandPose, pose2: HandPose, method: str = 'procrustes'
     Supported methods:
         - 'procrustes': Procrustes distance (lower = more similar)
 
-    Returns:
-        float similarity score (lower is more similar for Procrustes)
+
+    :returns float: similarity score
     """
     if method == 'procrustes':
         _, _, distance = procrustes_alignment(pose1, pose2)
         return distance
+    elif method == 'euclidean':
+        return euclidean_distance(pose1, pose2)
+    elif method == 'cosine':
+        return cosine_similarity(pose1, pose2)
+    elif method == 'joint_angle':
+        return joint_angle_similarity(pose1, pose2)
     else:
         raise NotImplementedError(f"Similarity method '{method}' is not implemented.")
