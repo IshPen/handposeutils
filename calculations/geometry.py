@@ -1,99 +1,110 @@
-# Angles.py returns angles between consecutive fingers in 3d space.
-# Functions include cosine angle between fingers with an intermediary joint
-# And theta/phi angle return functions for angles relative to axes
 import numpy as np
+from data.handpose import HandPose
 
-def get_angle(end_point1, end_point2, common_joint):
+def vector_between(c1, c2):
     """
-    :param end_point1: the coordinates of the first finger
-    :param end_point2: the coordinates of the second finger
-    :param common_joint: the coordinates of the common joint
-    :return: the angle between the two fingers
-    """
-    vector1 = end_point1 - common_joint
-    vector2 = end_point2 - common_joint
-    angle = np.dot(vector1, vector2) / (np.linalg.norm(vector1) * np.linalg.norm(vector2))
-    return angle
+    Returns a NumPy vector from Coordinate c1 to c2.
 
-def get_theta_angle(end_point1, common_joint): # theta angle between finger and x-axis
+    :param c1: Coordinate object.
+    :param c2: Coordinate object.
+    :return: A NumPy array representing the vector from c1 to c2.
     """
-    :param end_point1: the coordinates of the first finger
-    :return: the theta angle between the finger and the x-axis
-    """
-    vector1 = end_point1 - common_joint
-    vector2 = np.array([1, 0, 0])
-    angle = np.dot(vector1, vector2) / (np.linalg.norm(vector1) * np.linalg.norm(vector2))
-    return angle
-
-def get_phi_angle(end_point1, common_joint): # phi angle between finger and y-axis
-    """
-    :param end_point1: the coordinates of the first finger
-    :param end_point2: the coordinates of the second finger
-    :param common_joint: the coordinates of the common joint
-    :return: the phi angle between the finger and the y-axis
-    """
-    vector1 = end_point1 - common_joint
-    vector2 = np.array([0, 1, 0])
-    angle = np.dot(vector1, vector2) / (np.linalg.norm(vector1) * np.linalg.norm(vector2))
-    return angle
-
-def get_theta_subangle_between_fingers(end_point1, end_point2, common_joint): # theta angle between two fingers
-    """
-    :param end_point1: the coordinates of the first finger
-    :param end_point2: the coordinates of the second finger
-    :param common_joint: the coordinates of the common joint
-    :return: the absolute theta angle between the two fingers (only the axis-based subangle)
-    """
-    theta_angle1 = get_theta_angle(end_point1, common_joint)
-    theta_angle2 = get_theta_angle(end_point2, common_joint)
-    return abs(theta_angle1 - theta_angle2)
+    return np.array([c2.x - c1.x, c2.y - c1.y, c2.z - c1.z])
 
 
-def get_phi_subangle_between_fingers(end_point1, end_point2, common_joint): # phi angle between two fingers
+def get_finger_length(finger_name: str, pose) -> float:
     """
-    :param end_point1: the coordinates of the first finger
-    :param end_point2: the coordinates of the second finger
-    :param common_joint: the coordinates of the common joint
-    :return: the absolute phi angle between the two fingers (only the axis-based subangle)
+    Computes the total length of a finger by summing Euclidean distances between joints.
+
+    :param finger_name: Name of the finger ('thumb', 'index', etc.).
+    :return: float — total 3D length of the finger in the given pose.
     """
-    phi_angle1 = get_phi_angle(end_point1, common_joint)
-    phi_angle2 = get_phi_angle(end_point2, common_joint)
-    return abs(phi_angle1 - phi_angle2)
+    from data.constants import FINGER_MAPPING
+    indices = FINGER_MAPPING[finger_name]
+    coords = [pose[i] for i in indices]
 
+    # Sum distances between adjacent joints along the finger
+    length = 0.0
+    for i in range(len(coords) - 1):
+        v = vector_between(coords[i], coords[i+1])
+        length += np.linalg.norm(v)
+    return length
 
-def get_distance(point1, point2):
-    return np.linalg.norm(point1 - point2)
+def get_finger_segment_lengths(finger_name: str, pose) -> list[float]:
+    """
+    Computes the individual segment lengths of a finger (proximal, intermediate, distal).
 
-def get_planar_distance(point1, point2, plane):
-    '''
-    :param point1: the coordinates of the first point
-    :param point2: the coordinates of the second point
-    :param plane (str): the plane to get distance in
-        options: "xy", "yz", "xz"
-    :return: the distance between the two points projected onto the plane
-    '''
-    if plane == "xy":
-        return np.linalg.norm(point1[:2] - point2[:2]) # distance in the xy plane
-    elif plane == "yz":
-        return np.linalg.norm(point1[1:] - point2[1:]) # distance in the yz plane
-    elif plane == "xz":
-        return np.linalg.norm(point1[2:] - point2[2:]) # distance in the xz plane
-    else:
-        raise ValueError("Invalid plane")
+    :param finger_name: Name of the finger.
+    :return: List of three floats representing segment lengths.
+    """
+    from data.constants import FINGER_MAPPING
+    indices = FINGER_MAPPING[finger_name]
+    coords = [pose[i] for i in indices]
 
-def get_linear_distance(point1, point2, axis):
-    '''
-    :param point1: the coordinates of the first point
-    :param point2: the coordinates of the second point
-    :param axis (str): the axis to get distance in
-        options: "x", "y", "z"
-    :return: the distance between the two points projected onto the axis
-    '''
-    if axis == "x":
-        return np.linalg.norm(point1[0] - point2[0]) # distance in the x axis
-    elif axis == "y":
-        return np.linalg.norm(point1[1] - point2[1]) # distance in the y axis
-    elif axis == "z":
-        return np.linalg.norm(point1[2] - point2[2]) # distance in the z axis
-    else:
-        raise ValueError("Invalid axis")
+    # Return lengths between successive joints (3 segments per finger)
+    return [np.linalg.norm(vector_between(coords[i], coords[i+1])) for i in range(3)]
+
+def get_finger_curvature(finger_name: str, pose) -> float:
+    """
+    Estimates the average angular curvature of a finger.
+
+    :param finger_name: Name of the finger.
+    :return: Float — average angle (in radians) between finger segments. Lower is straighter.
+    """
+    from data.constants import FINGER_MAPPING
+    indices = FINGER_MAPPING[finger_name]
+    a, b, c, d = [pose[i] for i in indices]
+
+    # Get vectors between adjacent joints
+    v1 = vector_between(a, b)
+    v2 = vector_between(b, c)
+    v3 = vector_between(c, d)
+
+    def angle_between(v1, v2):
+        # Classic cosine angle formula
+        dot = np.dot(v1, v2)
+        norms = np.linalg.norm(v1) * np.linalg.norm(v2)
+        cos_theta = np.clip(dot / (norms + 1e-6), -1.0, 1.0)
+        return np.arccos(cos_theta)
+
+    # Average the two segment angles
+    return (angle_between(v1, v2) + angle_between(v2, v3)) / 2.0
+
+def get_total_hand_span(pose) -> float:
+    """
+    Measures total hand span between thumb tip and pinky tip.
+
+    :return: Float distance between landmarks 4 and 20.
+    """
+    thumb_tip = pose[4]
+    pinky_tip = pose[20]
+
+    # Simple Euclidean distance
+    return np.linalg.norm(vector_between(thumb_tip, pinky_tip))
+
+def get_finger_spread(pose) -> dict[str, float]:
+    """
+    Measures the angular spread between adjacent fingers at their MCP joints.
+
+    :return: Dict mapping each finger pair (e.g., "INDEX-MIDDLE") to angle in radians.
+    """
+    base_indices = [5, 9, 13, 17]  # MCPs for index → pinky
+    names = ["INDEX", "MIDDLE", "RING", "PINKY"]
+    spread = {}
+
+    for i in range(len(base_indices) - 1):
+        a = pose[base_indices[i]]
+        b = pose[0]  # Wrist
+        c = pose[base_indices[i + 1]]
+
+        # Vectors from wrist to adjacent MCPs
+        v1 = vector_between(b, a)
+        v2 = vector_between(b, c)
+
+        # Angle between MCP direction vectors
+        dot = np.dot(v1, v2)
+        norms = np.linalg.norm(v1) * np.linalg.norm(v2)
+        angle = np.arccos(np.clip(dot / (norms + 1e-6), -1.0, 1.0))
+
+        spread[f"{names[i]}-{names[i+1]}"] = angle
+    return spread
