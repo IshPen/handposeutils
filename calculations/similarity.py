@@ -214,3 +214,50 @@ def pose_similarity(pose1: HandPose, pose2: HandPose, method: str = 'procrustes'
         return joint_angle_similarity(pose1, pose2)
     else:
         raise NotImplementedError(f"Similarity method '{method}' is not implemented.")
+
+
+## --- Implementations for Embedding Similarity --- ##
+
+def embedding_similarity(vec1: np.ndarray, vec2: np.ndarray, method: str = "cosine", **kwargs) -> float:
+    """
+    Compute similarity or distance between two embedding vectors.
+
+    :param vec1: First embedding vector (np.ndarray).
+    :param vec2: Second embedding vector (np.ndarray).
+    :param method: Similarity method: 'cosine', 'euclidean', 'manhattan', or 'mahalanobis'.
+    :param kwargs: Additional args for specific methods (e.g., 'cov' for Mahalanobis).
+    :return: A float score. Higher means more similar (for cosine), lower means more similar (for distances).
+    """
+    if vec1.shape != vec2.shape:
+        raise ValueError(f"Vectors must be same shape. Got {vec1.shape} vs {vec2.shape}")
+
+    if method == "cosine":
+        dot_product = np.dot(vec1, vec2)
+        norm_a = np.linalg.norm(vec1)
+        norm_b = np.linalg.norm(vec2)
+        if norm_a == 0 or norm_b == 0:
+            return 0.0
+        return "cosine", dot_product / (norm_a * norm_b)
+
+    elif method == "euclidean":
+        diff = vec1 - vec2
+        return "euclidean", np.sqrt(np.sum(diff ** 2))
+
+    elif method == "manhattan":
+        return "manhattan", np.sum(np.abs(vec1 - vec2))
+
+    elif method == "mahalanobis":
+        diff = vec1 - vec2
+        cov = kwargs.get("cov", np.eye(len(vec1)))
+        if cov.shape != (len(vec1), len(vec1)):
+            raise ValueError(f"Covariance matrix must be shape ({len(vec1)}, {len(vec1)}), got {cov.shape}")
+        try:
+            inv_cov = np.linalg.inv(cov)
+        except np.linalg.LinAlgError:
+            raise ValueError("Covariance matrix is not invertible.")
+
+        dist = np.dot(np.dot(diff.T, inv_cov), diff)
+        return "mahalanobis", np.sqrt(dist)
+
+    else:
+        raise NotImplementedError(f"Unknown method '{method}'.")

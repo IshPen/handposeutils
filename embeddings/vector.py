@@ -1,4 +1,4 @@
-# embeddings.py
+# vector.py
 # encoder for geometric, latent, and graph-based embeddings
 
 import numpy as np
