@@ -1,10 +1,9 @@
 # transforms.py
-
+from __future__ import annotations
 import math
 from typing import Literal
-from ..data.handpose import HandPose
 
-def normalize_handpose_positioning(pose: HandPose) -> HandPose:
+def normalize_handpose_positioning(pose: "HandPose") -> "HandPose":
     coords = pose.get_all_coordinates()
     center_x = sum(c.x for c in coords) / len(coords)
     center_y = sum(c.y for c in coords) / len(coords)
@@ -16,7 +15,7 @@ def normalize_handpose_positioning(pose: HandPose) -> HandPose:
         coord.z -= center_z
     return pose
 
-def normalize_handpose_scaling(pose: HandPose) -> HandPose:
+def normalize_handpose_scaling(pose: "HandPose") -> "HandPose":
     coords = pose.get_all_coordinates()
     min_x = min(c.x for c in coords)
     max_x = max(c.x for c in coords)
@@ -39,12 +38,12 @@ def normalize_handpose_scaling(pose: HandPose) -> HandPose:
         coord.z = (coord.z - min_z) / max_range * 2 - 1
     return pose
 
-def normalize_handpose(pose: HandPose) -> HandPose:
+def normalize_handpose(pose: "HandPose") -> "HandPose":
     pose = normalize_handpose_positioning(pose)
     pose = normalize_handpose_scaling(pose)
     return pose
 
-def mirror_pose(pose: HandPose, axis: Literal['x', 'y', 'z'] = 'x') -> HandPose:
+def mirror_pose(pose: "HandPose", axis: Literal['x', 'y', 'z'] = 'x') -> "HandPose":
     coords = pose.get_all_coordinates()
     for coord in coords:
         if axis == 'x':
@@ -57,7 +56,7 @@ def mirror_pose(pose: HandPose, axis: Literal['x', 'y', 'z'] = 'x') -> HandPose:
             raise ValueError("Axis must be 'x', 'y', or 'z'")
     return pose
 
-def rotate_pose_by_axis(pose: HandPose, degrees: float, axis: Literal['x', 'y', 'z']) -> HandPose:
+def rotate_pose_by_axis(pose: "HandPose", degrees: float, axis: Literal['x', 'y', 'z']) -> "HandPose":
     radians = math.radians(degrees)
     cos_a = math.cos(radians)
     sin_a = math.sin(radians)
@@ -78,89 +77,43 @@ def rotate_pose_by_axis(pose: HandPose, degrees: float, axis: Literal['x', 'y', 
             raise ValueError("Axis must be 'x', 'y', or 'z'")
     return pose
 
-def straighten_finger(pose: HandPose, finger: str) -> HandPose:
-    from ..data.constants import FINGER_MAPPING
-    indices = FINGER_MAPPING.get(finger)
-    if not indices:
-        raise ValueError(f"Invalid finger: {finger}")
+def straighten_finger(pose, finger: str) -> "HandPose":
+    '''
+    :param pose: HandPose
+    :param finger: finger to straighten
+    :return: HandPose with finger straightened in the direction of
+    '''
+    from data.constants import FINGER_MAPPING
+    indices = FINGER_MAPPING.get(finger.upper())
+    if not indices or len(indices) < 2:
+        raise ValueError(f"Invalid or too-short finger: {finger}")
+
+    # Base and first joint determine direction
     base = pose.get_coordinate_by_index(indices[0])
-    next_point = pose.get_coordinate_by_index(indices[1])
-    direction = next_point - base
-    direction.normalize()
+    next_joint = pose.get_coordinate_by_index(indices[1])
+    direction = (next_joint - base).normalize()
 
+    # Step 1: Compute distances between each consecutive point
+    segment_lengths = []
+    total_length = 0.0
     for i in range(1, len(indices)):
-        pose.points[indices[i]]["coordinate"] = base + direction.scale(i * 0.05)
+        prev_coord = pose.get_coordinate_by_index(indices[i - 1])
+        curr_coord = pose.get_coordinate_by_index(indices[i])
+        dist = (curr_coord - prev_coord).magnitude()
+        segment_lengths.append(dist)
+        total_length += dist
+
+    # Step 2: Compute cumulative percentage position of each joint
+    cumulative = 0.0
+    new_positions = [base]
+    for length in segment_lengths:
+        cumulative += length
+        ratio = cumulative / total_length
+        new_coord = base + direction.scale(total_length * ratio)
+        new_positions.append(new_coord)
+
+    # Step 3: Update coordinates
+    for i in range(len(indices)):
+        pose.points[indices[i]]["coordinate"] = new_positions[i]
+
     return pose
-
-
-# Angles.py returns angles between consecutive fingers in 3d space.
-# Functions include cosine angle between fingers with an intermediary joint
-# And theta/phi angle return functions for angles relative to axes
-import numpy as np
-
-def get_angle(end_point1, end_point2, common_joint):
-    """
-    :param end_point1: the coordinates of the first finger
-    :param end_point2: the coordinates of the second finger
-    :param common_joint: the coordinates of the common joint
-    :return: the angle between the two fingers
-    """
-    vector1 = end_point1 - common_joint
-    vector2 = end_point2 - common_joint
-    angle = np.dot(vector1, vector2) / (np.linalg.norm(vector1) * np.linalg.norm(vector2))
-    return angle
-
-def get_theta_angle(end_point1, common_joint): # theta angle between finger and x-axis
-    """
-    :param end_point1: the coordinates of the first finger
-    :return: the theta angle between the finger and the x-axis
-    """
-    vector1 = end_point1 - common_joint
-    vector2 = np.array([1, 0, 0])
-    angle = np.dot(vector1, vector2) / (np.linalg.norm(vector1) * np.linalg.norm(vector2))
-    return angle
-
-def get_phi_angle(end_point1, common_joint): # phi angle between finger and y-axis
-    """
-    :param end_point1: the coordinates of the first finger
-    :param end_point2: the coordinates of the second finger
-    :param common_joint: the coordinates of the common joint
-    :return: the phi angle between the finger and the y-axis
-    """
-    vector1 = end_point1 - common_joint
-    vector2 = np.array([0, 1, 0])
-    angle = np.dot(vector1, vector2) / (np.linalg.norm(vector1) * np.linalg.norm(vector2))
-    return angle
-
-def get_theta_subangle_between_fingers(end_point1, end_point2, common_joint): # theta angle between two fingers
-    """
-    :param end_point1: the coordinates of the first finger
-    :param end_point2: the coordinates of the second finger
-    :param common_joint: the coordinates of the common joint
-    :return: the absolute theta angle between the two fingers (only the axis-based subangle)
-    """
-    theta_angle1 = get_theta_angle(end_point1, common_joint)
-    theta_angle2 = get_theta_angle(end_point2, common_joint)
-    return abs(theta_angle1 - theta_angle2)
-
-## Monkey patching
-
-HandPose.normalize_positioning = lambda self: normalize_handpose_positioning(self)
-HandPose.normalize_scaling = lambda self: normalize_handpose_scaling(self)
-HandPose.normalize = lambda self: normalize_handpose(self)
-HandPose.mirror = lambda self, axis='x': mirror_pose(self, axis)
-HandPose.rotate = lambda self, degrees=0, axis='z': rotate_pose_by_axis(self, degrees, axis)
-HandPose.straighten_finger = lambda self, finger='index': straighten_finger(self, finger)
-
-
-def get_phi_subangle_between_fingers(end_point1, end_point2, common_joint): # phi angle between two fingers
-    """
-    :param end_point1: the coordinates of the first finger
-    :param end_point2: the coordinates of the second finger
-    :param common_joint: the coordinates of the common joint
-    :return: the absolute phi angle between the two fingers (only the axis-based subangle)
-    """
-    phi_angle1 = get_phi_angle(end_point1, common_joint)
-    phi_angle2 = get_phi_angle(end_point2, common_joint)
-    return abs(phi_angle1 - phi_angle2)
-

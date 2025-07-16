@@ -7,16 +7,23 @@ with open('poses/rock_on.json') as f:
     pose = DataReader.convert_json_to_HandPose(json_data=json.load(f))
 
 # Visualize
-visualizer = HandPoseVisualizer()
-visualizer.set_hand_poses([pose])
-visualizer.show_pose()
+vis1 = HandPoseVisualizer()
+vis2 = HandPoseVisualizer()
 
-print("Press 'q' to normalize pose...")
+vis1.set_hand_poses([pose])
+vis1.show_pose()
 
 pose.normalize()
-visualizer.set_hand_poses([pose])
-visualizer.show_pose()
+pose.straighten_finger("pinky")
+pose.straighten_finger("thumb")
+pose.straighten_finger("ring")
+pose.straighten_finger("middle")
+pose.straighten_finger("index")
+pose.mirror("z")
+# pose.rotate(degrees=-90, axis="z")
 
-input("Press 'q' to close window...")
+vis2.set_hand_poses([pose])
+vis2.show_pose()
 
-visualizer.close()
+vis1.close()
+vis2.close()

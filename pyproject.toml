@@ -1,0 +1,14 @@
+[project]
+name = "handposeutils"
+version = "0.1.0"
+description = "Utility package for analyzing and visualizing 3D hand poses."
+authors = [{ name = "Ishan", email = "pendyala.ishan@gmail.com" }]
+dependencies = []
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["handposeutils"]
