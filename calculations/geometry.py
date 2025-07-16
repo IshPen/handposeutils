@@ -164,3 +164,27 @@ def get_palm_normal_vector(pose) -> np.ndarray:
     v2 = c - a
     normal = np.cross(v1, v2)
     return normal / (np.linalg.norm(normal) + 1e-6)
+
+def get_cross_finger_angles(pose) -> dict[str, float]:
+    """
+    Measures the angle between direction vectors of adjacent fingers.
+
+    :return: Dict of angles (radians) between finger direction vectors.
+    """
+    from data.constants import FINGER_MAPPING
+    finger_names = ["thumb", "index", "middle", "ring", "pinky"]
+    vectors = {}
+
+    # Compute normalized vector from base to tip for each finger
+    for name in finger_names:
+        indices = FINGER_MAPPING[name]
+        base, tip = pose[indices[0]], pose[indices[-1]]
+        vec = vector_between(base, tip)
+        vectors[name] = vec / (np.linalg.norm(vec) + 1e-6)
+
+    angles = {}
+    for i in range(len(finger_names) - 1):
+        f1, f2 = finger_names[i], finger_names[i+1]
+        angle = np.arccos(np.clip(np.dot(vectors[f1], vectors[f2]), -1.0, 1.0))
+        angles[f"{f1}-{f2}"] = angle
+    return angles
