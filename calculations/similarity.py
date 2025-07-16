@@ -158,6 +158,40 @@ def joint_angle_similarity(pose1: HandPose, pose2: HandPose) -> float:
     diff = np.array(angles1) - np.array(angles2)
     return float(np.mean(diff ** 2))
 
+def compute_joint_angle_errors(pose1: HandPose, pose2: HandPose) -> List[float]:
+    """
+    Compute absolute angle differences (in radians) for each finger joint between two poses.
+    Assumes MediaPipe 21-landmark format.
+    """
+    from math import acos
+    from numpy.linalg import norm
+
+    def angle_between(v1, v2):
+        dot = np.dot(v1, v2)
+        return acos(np.clip(dot / (norm(v1) * norm(v2) + 1e-6), -1.0, 1.0))
+
+    pairs = [
+        (1, 2, 3), (2, 3, 4),     # Thumb
+        (5, 6, 7), (6, 7, 8),     # Index
+        (9, 10, 11), (10, 11, 12),# Middle
+        (13, 14, 15), (14, 15, 16),# Ring
+        (17, 18, 19), (18, 19, 20) # Pinky
+    ]
+
+    angles1 = []
+    angles2 = []
+
+    for a, b, c in pairs:
+        v1a = pose1[b] - pose1[a]
+        v1b = pose1[c] - pose1[b]
+        angles1.append(angle_between(v1a.as_tuple(), v1b.as_tuple()))
+
+        v2a = pose2[b] - pose2[a]
+        v2b = pose2[c] - pose2[b]
+        angles2.append(angle_between(v2a.as_tuple(), v2b.as_tuple()))
+
+    return np.abs(np.array(angles1) - np.array(angles2))
+
 
 def pose_similarity(pose1: HandPose, pose2: HandPose, method: str = 'procrustes') -> float:
     """
