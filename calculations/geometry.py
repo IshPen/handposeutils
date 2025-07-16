@@ -19,6 +19,7 @@ def get_finger_length(finger_name: str, pose) -> float:
     :param finger_name: Name of the finger ('thumb', 'index', etc.).
     :return: float — total 3D length of the finger in the given pose.
     """
+    finger_name = finger_name.upper()
     from data.constants import FINGER_MAPPING
     indices = FINGER_MAPPING[finger_name]
     coords = [pose[i] for i in indices]
@@ -37,6 +38,7 @@ def get_finger_segment_lengths(finger_name: str, pose) -> list[float]:
     :param finger_name: Name of the finger.
     :return: List of three floats representing segment lengths.
     """
+    finger_name = finger_name.upper()
     from data.constants import FINGER_MAPPING
     indices = FINGER_MAPPING[finger_name]
     coords = [pose[i] for i in indices]
@@ -51,6 +53,7 @@ def get_finger_curvature(finger_name: str, pose) -> float:
     :param finger_name: Name of the finger.
     :return: Float — average angle (in radians) between finger segments. Lower is straighter.
     """
+    finger_name = finger_name.upper()
     from data.constants import FINGER_MAPPING
     indices = FINGER_MAPPING[finger_name]
     a, b, c, d = [pose[i] for i in indices]
@@ -172,7 +175,7 @@ def get_cross_finger_angles(pose) -> dict[str, float]:
     :return: Dict of angles (radians) between finger direction vectors.
     """
     from data.constants import FINGER_MAPPING
-    finger_names = ["thumb", "index", "middle", "ring", "pinky"]
+    finger_names = ["THUMB", "INDEX", "MIDDLE", "RING", "PINKY"]
     vectors = {}
 
     # Compute normalized vector from base to tip for each finger
