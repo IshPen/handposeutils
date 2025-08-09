@@ -1,7 +1,7 @@
 import json
 
-from data.data_reader import DataReader
-from visualization import HandPoseVisualizer
+from handposeutils.data.data_reader import DataReader
+from handposeutils.visualization import HandPoseVisualizer
 
 with open('poses/rock_on.json') as f:
     pose = DataReader.convert_json_to_HandPose(json_data=json.load(f))

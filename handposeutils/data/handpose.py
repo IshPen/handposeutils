@@ -1,7 +1,8 @@
 from typing import List, Literal, Dict
 from .coordinate import Coordinate
 from .constants import POINTS_NAMES_LIST, FINGER_MAPPING
-from calculations import transforms
+from handposeutils.calculations import transforms
+
 
 class HandPose:
     def __init__(self, coordinates: List[Coordinate], side: Literal["left_hand", "right_hand"], name: str = None):

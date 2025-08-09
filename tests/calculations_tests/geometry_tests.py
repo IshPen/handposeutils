@@ -1,9 +1,8 @@
-from calculations.geometry import *
-from data import DataReader
+from handposeutils.data import DataReader
 import json
 
-from visualization import HandPoseVisualizer
-
+from handposeutils.visualization import HandPoseVisualizer
+from handposeutils.calculations.geometry import *
 
 def test_finger_length(pose):
     print("== Finger Lengths ==")

@@ -3,9 +3,9 @@ import mediapipe as mp
 import sys, os
 from datetime import datetime
 import json
-from data.data_reader import DataReader
-from data.handpose_sequence import HandPoseSequence
-from visualization.visualizer import HandPoseVisualizer
+from handposeutils.data.data_reader import DataReader
+from handposeutils.data.handpose_sequence import HandPoseSequence
+from handposeutils.visualization.visualizer import HandPoseVisualizer
 import threading
 
 reader = DataReader()

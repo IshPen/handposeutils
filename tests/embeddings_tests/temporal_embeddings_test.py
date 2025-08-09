@@ -1,9 +1,9 @@
 import json
 
-from data import DataReader
-from embeddings.vector import structured_temporal_embedding, flatten_temporal_embedding
-from embeddings.vector import get_fused_pose_embedding  # embedding function, or choose angle-based fn
-from calculations.similarity import embedding_similarity
+from handposeutils.data import DataReader
+from handposeutils.embeddings.vector import structured_temporal_embedding, flatten_temporal_embedding
+from handposeutils.embeddings.vector import get_fused_pose_embedding  # embedding function, or choose angle-based fn
+from handposeutils.calculations.similarity import embedding_similarity
 
 with open('poses/rock_sequence.json') as f:
     rock_sequence1 = DataReader.convert_json_to_HandPoseSequence(json_data=json.load(f))

@@ -1,8 +1,8 @@
 import cv2
 import mediapipe as mp
-from data.data_reader import DataReader
-from visualization.visualized_pose import VisualizedPose
-from visualization.visualizer import HandPoseVisualizer
+from handposeutils.data.data_reader import DataReader
+from handposeutils.visualization.visualized_pose import VisualizedPose
+from handposeutils.visualization.visualizer import HandPoseVisualizer
 
 reader = DataReader()
 viz = HandPoseVisualizer()

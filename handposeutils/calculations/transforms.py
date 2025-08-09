@@ -83,7 +83,7 @@ def straighten_finger(pose, finger: str) -> "HandPose":
     :param finger: finger to straighten
     :return: HandPose with finger straightened in the direction of
     '''
-    from data.constants import FINGER_MAPPING
+    from handposeutils.data.constants import FINGER_MAPPING
     indices = FINGER_MAPPING.get(finger.upper())
     if not indices or len(indices) < 2:
         raise ValueError(f"Invalid or too-short finger: {finger}")

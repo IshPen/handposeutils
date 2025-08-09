@@ -1,4 +1,4 @@
-from data.handpose import HandPose
+from handposeutils.data.handpose import HandPose
 from typing import Optional, Tuple
 
 

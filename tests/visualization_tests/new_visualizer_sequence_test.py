@@ -1,8 +1,8 @@
 import json
-from data.data_reader import DataReader
-from data.handpose_sequence import HandPoseSequence, TimedHandPose
-from visualization.visualized_pose import VisualizedPose
-from visualization.visualizer import HandPoseVisualizer
+from handposeutils.data.data_reader import DataReader
+from handposeutils.data.handpose_sequence import HandPoseSequence, TimedHandPose
+from handposeutils.visualization.visualized_pose import VisualizedPose
+from handposeutils.visualization.visualizer import HandPoseVisualizer
 
 def main(json_path):
     with open(json_path, 'r') as f:

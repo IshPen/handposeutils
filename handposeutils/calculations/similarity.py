@@ -1,6 +1,6 @@
 import numpy as np
 from typing import Tuple, List
-from data.handpose import HandPose
+from handposeutils.data.handpose import HandPose
 
 def procrustes_alignment(pose1: HandPose, pose2: HandPose) -> Tuple[np.ndarray, np.ndarray, float]:
     """

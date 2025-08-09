@@ -1,5 +1,5 @@
 import numpy as np
-from data.handpose import HandPose
+
 
 def vector_between(c1, c2):
     """
@@ -20,7 +20,7 @@ def get_finger_length(finger_name: str, pose) -> float:
     :return: float — total 3D length of the finger in the given pose.
     """
     finger_name = finger_name.upper()
-    from data.constants import FINGER_MAPPING
+    from handposeutils.data.constants import FINGER_MAPPING
     indices = FINGER_MAPPING[finger_name]
     coords = [pose[i] for i in indices]
 
@@ -39,7 +39,7 @@ def get_finger_segment_lengths(finger_name: str, pose) -> list[float]:
     :return: List of three floats representing segment lengths.
     """
     finger_name = finger_name.upper()
-    from data.constants import FINGER_MAPPING
+    from handposeutils.data.constants import FINGER_MAPPING
     indices = FINGER_MAPPING[finger_name]
     coords = [pose[i] for i in indices]
 
@@ -54,7 +54,7 @@ def get_finger_curvature(finger_name: str, pose) -> float:
     :return: Float — average angle (in radians) between finger segments. Lower is straighter.
     """
     finger_name = finger_name.upper()
-    from data.constants import FINGER_MAPPING
+    from handposeutils.data.constants import FINGER_MAPPING
     indices = FINGER_MAPPING[finger_name]
     a, b, c, d = [pose[i] for i in indices]
 
@@ -174,7 +174,7 @@ def get_cross_finger_angles(pose) -> dict[str, float]:
 
     :return: Dict of angles (radians) between finger direction vectors.
     """
-    from data.constants import FINGER_MAPPING
+    from handposeutils.data.constants import FINGER_MAPPING
     finger_names = ["THUMB", "INDEX", "MIDDLE", "RING", "PINKY"]
     vectors = {}
 

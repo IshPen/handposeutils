@@ -1,5 +1,5 @@
-from data.data_reader import DataReader
-from calculations.similarity import pose_similarity
+from handposeutils.data.data_reader import DataReader
+from handposeutils.calculations.similarity import pose_similarity
 import json
 
 with open('poses/rock_on.json') as f:

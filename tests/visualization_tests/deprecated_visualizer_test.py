@@ -12,7 +12,7 @@ import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from visualization.visualizer import DeprecatedHandPoseVisualizer
+from handposeutils.visualization.visualizer import DeprecatedHandPoseVisualizer
 import mediapipe as mp
 
 mp_hands = mp.solutions.hands

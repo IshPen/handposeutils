@@ -1,5 +1,5 @@
-from data.data_reader import DataReader
-from visualization import HandPoseVisualizer
+from handposeutils.data.data_reader import DataReader
+from handposeutils.visualization import HandPoseVisualizer
 import json
 
 visualizer = HandPoseVisualizer()

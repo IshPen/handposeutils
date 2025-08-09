@@ -1,7 +1,7 @@
 import json
-from data.data_reader import DataReader
-from visualization.visualized_pose import VisualizedPose
-from visualization.visualizer import HandPoseVisualizer
+from handposeutils.data.data_reader import DataReader
+from handposeutils.visualization.visualized_pose import VisualizedPose
+from handposeutils.visualization.visualizer import HandPoseVisualizer
 
 def main(json_path):
     # Load saved HandPose JSON

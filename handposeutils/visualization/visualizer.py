@@ -361,7 +361,7 @@ class HandPoseVisualizer:
             errors = 1 - cosine_sim  # Error = 1 - similarity
 
         elif method == "joint_angle":
-            from calculations.similarity import compute_joint_angle_errors
+            from handposeutils.calculations import compute_joint_angle_errors
             joint_errors = compute_joint_angle_errors(pose1, pose2)
 
             # Map each angle error to its middle joint in the 3-point triplet

@@ -4,8 +4,8 @@
 import numpy as np
 from math import acos
 from typing import List
-from data.handpose import HandPose
-from data.coordinate import Coordinate
+from handposeutils.data.handpose import HandPose
+from handposeutils.data.coordinate import Coordinate
 from typing import Callable, Optional, Tuple
 
 
@@ -113,7 +113,7 @@ def get_fused_pose_embedding(pose: HandPose) -> np.ndarray:
 
     return np.concatenate([angles, lengths, rel])
 
-from data.handpose_sequence import HandPoseSequence
+from handposeutils.data.handpose_sequence import HandPoseSequence
 
 def _sinusoidal_time_encoding(timestamps: np.ndarray, dim: int, time_scale: float = 1.0) -> np.ndarray:
     """
