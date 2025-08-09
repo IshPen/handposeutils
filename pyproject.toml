@@ -1,14 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "handposeutils"
 version = "0.1.0"
-description = "Utility package for analyzing and visualizing 3D hand poses."
-authors = [{ name = "Ishan", email = "pendyala.ishan@gmail.com" }]
-dependencies = []
+description = "A research utility library for analyzing, transforming, embedding, and visualizing hand poses."
+readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.11"
+authors = [
+    { name = "Ishan", email = "pendyala.ishan@gmail.com" }
+]
+keywords = ["hand pose", "mediapipe", "3D visualization", "Open3D", "research"]
+dependencies = [
+    "numpy",
+    "open3d",
+    "mediapipe",
+    "scikit-learn",
+    "matplotlib",
+    "opencv-python"
+]
 
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools]
-packages = ["handposeutils"]
+[project.urls]
+Homepage = "https://github.com/IshPen/handposeutils"
+Documentation = "https://handposeutils.readthedocs.io"
+Source = "https://github.com/IshPen/handposeutils"
+Issues = "https://github.com/IshPen/handposeutils/issues"
