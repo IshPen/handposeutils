@@ -21,8 +21,6 @@ dependencies = [
     "matplotlib"
 ]
 
-[project.urls]
-Homepage = "https://github.com/IshPen/handposeutils"
-Documentation = "https://handposeutils.readthedocs.io"
-Source = "https://github.com/IshPen/handposeutils"
-Issues = "https://github.com/IshPen/handposeutils/issues"
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["handposeutils*"]
