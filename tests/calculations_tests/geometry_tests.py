@@ -2,6 +2,9 @@ from calculations.geometry import *
 from data import DataReader
 import json
 
+from visualization import HandPoseVisualizer
+
+
 def test_finger_length(pose):
     print("== Finger Lengths ==")
     for finger in ["thumb", "index", "middle", "ring", "pinky"]:
@@ -9,20 +12,20 @@ def test_finger_length(pose):
         print(f"{finger.title()} Length: {length:.3f}")
 
 def test_finger_segment_lengths(pose):
-    print("== Finger Segment Lengths ==")
+    print("\n== Finger Segment Lengths ==")
     for finger in ["thumb", "index", "middle", "ring", "pinky"]:
         segments = get_finger_segment_lengths(finger, pose)
-        print(f"\n{finger.title()} Segments: {['%.3f' % s for s in segments]}")
+        print(f"{finger.title()} Segments: {['%.3f' % s for s in segments]}")
 
 def test_finger_curvature(pose):
-    print("== Finger Curvatures ==")
+    print("\n== Finger Curvatures ==")
     for finger in ["thumb", "index", "middle", "ring", "pinky"]:
         angle = get_finger_curvature(finger, pose)
-        print(f"\n{finger.title()} Curvature (radians): {angle:.3f}")
+        print(f"{finger.title()} Curvature (radians): {angle:.3f}")
 
 def test_total_hand_span(pose):
     span = get_total_hand_span(pose)
-    print(f"\n== Total Hand Span ==\nThumb <-> Pinky Distance: {span:.3f}")
+    print(f"\n== Total Hand Span ==\nThumb to Pinky Distance: {span:.3f}")
 
 def test_finger_spread(pose):
     print("\n== Finger Spread Angles ==")
@@ -75,3 +78,6 @@ if __name__ == "__main__":
         pose1 = DataReader.convert_json_to_HandPose(json_data=json.load(f))
         pose1.normalize()
     main(pose1)
+    vis = HandPoseVisualizer()
+    vis.set_hand_poses([pose1])
+    vis.show_pose()
