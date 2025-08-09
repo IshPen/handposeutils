@@ -4,7 +4,7 @@ from .handpose import HandPose
 from .handpose_sequence import HandPoseSequence, TimedHandPose
 from .coordinate import Coordinate
 from .constants import POINTS_NAMES_LIST, FINGER_MAPPING
-
+import os, json
 ## The DataReader class for
 # I highkey don't think you'll ever need to convert from OpenPose to HandPoses,
 # but I somehow found myself in a situation where I did.
@@ -81,7 +81,11 @@ class DataReader:
     @staticmethod
     def convert_json_to_HandPose(json_data: Dict[str, Any]) -> HandPose:
         side = json_data.get("side", "right_hand")
-        landmarks = json_data["landmarks"]
+        try:
+            landmarks = json_data["landmarks"]
+        except:
+            landmarks = json_data["pose"]["landmarks"]
+
         coords = [Coordinate(pt["x"], pt["y"], pt["z"]) for pt in landmarks]
         return HandPose(coords, side)
 
@@ -99,6 +103,7 @@ class DataReader:
         '''
         data = {
             "side": pose.side,
+            "name": pose.name,  # new field
             "landmarks": []
         }
         for i in range(21):
@@ -162,3 +167,39 @@ class DataReader:
                 for tp in sequence
             ]
         }
+
+    @staticmethod
+    def save_frames_to_folder(sequence: HandPoseSequence, folder_name: str, file_prefix: str,
+                              handpose_prefix_name: str):
+        """
+        Save each frame of a HandPoseSequence to a separate JSON file.
+
+        Args:
+            sequence (HandPoseSequence): The sequence to save.
+            folder_name (str): Path to the folder where JSON files will be stored.
+            file_prefix (str): Prefix for each saved file (e.g., 'frame' -> frame_1.json).
+            handpose_prefix_name (str): Prefix for the HandPose.name in each saved file.
+        """
+        # Create folder if it doesn't exist
+        os.makedirs(folder_name, exist_ok=True)
+
+        for idx, timed_pose in enumerate(sequence.sequence, start=1):
+            # Give the pose a name
+            timed_pose.pose.name = f"{handpose_prefix_name}_{idx}"
+
+            # Convert to JSON
+            pose_json = DataReader.export_HandPose_to_json(timed_pose.pose)
+
+            # Include timing info so the saved data is fully reconstructable
+            frame_data = {
+                "start_time": timed_pose.start_time,
+                "end_time": timed_pose.end_time,
+                "pose": pose_json
+            }
+
+            # Save to file
+            file_path = os.path.join(folder_name, f"{file_prefix}_{idx}.json")
+            with open(file_path, 'w') as f:
+                json.dump(frame_data, f, indent=2)
+
+        print(f"[✅] Saved {len(sequence)} frames to '{folder_name}'")

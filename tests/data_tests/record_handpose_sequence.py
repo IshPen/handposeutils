@@ -43,10 +43,19 @@ def pose_control_thread(get_current_pose_fn):
                 filename = f"sequence_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
                 path = os.path.join(SAVE_DIR, filename)
                 json_data = DataReader.convert_HandPoseSequence_to_json(sequence, fps=30)
+
                 with open(path, "w") as f:
                     json.dump(json_data, f, indent=2)
                 print(f"[✓] Saved HandPoseSequence to {path}")
                 recording_mode = False
+
+                DataReader.save_frames_to_folder(
+                    sequence,
+                    folder_name="saved_poses/split_rock_frames",
+                    file_prefix="frame",
+                    handpose_prefix_name="rock"
+                )
+
             else:
                 print("[!] Not currently recording.")
         elif user_input == "q":
@@ -85,6 +94,7 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.8) a
 
         if should_exit:
             break
+
 
 cam.release()
 viz.close()

@@ -13,6 +13,7 @@ def main(json_path):
 
     for entry in seq_data["sequence"]:
         base_pose = DataReader.convert_json_to_HandPose(entry["hand_pose"])
+        base_pose.normalize_position()
         vis_pose = VisualizedPose(base_pose.get_all_coordinates(), base_pose.side)
         vis_pose.annotate(f"{entry['start_time']:.2f}s")
         sequence.append(TimedHandPose(vis_pose, entry["start_time"], entry["end_time"]))
@@ -27,4 +28,4 @@ def main(json_path):
     visualizer.close()
 
 if __name__ == "__main__":
-    main("../calculations_tests/poses/sequence_counting.json")
+    main("../embeddings_tests/poses/rock_sequence.json")

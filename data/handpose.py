@@ -4,15 +4,16 @@ from .constants import POINTS_NAMES_LIST, FINGER_MAPPING
 from calculations import transforms
 
 class HandPose:
-    def __init__(self, coordinates: List[Coordinate], side: Literal["left_hand", "right_hand"]):
+    def __init__(self, coordinates: List[Coordinate], side: Literal["left_hand", "right_hand"], name: str = None):
         if len(coordinates) != 21:
             raise ValueError("Expected 21 coordinates for hand landmarks (MediaPipe format).")
 
         self.side = side
+        self.name = name  # Optional identifier for the pose
         self.points: Dict[int, Dict] = {}
 
         for i, coord in enumerate(coordinates):
-            finger = next((name for name, idxs in FINGER_MAPPING.items() if i in idxs), "PALM")
+            finger = next((fname for fname, idxs in FINGER_MAPPING.items() if i in idxs), "PALM")
             self.points[i] = {
                 "coordinate": coord,
                 "side": side,
