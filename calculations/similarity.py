@@ -220,31 +220,47 @@ def pose_similarity(pose1: HandPose, pose2: HandPose, method: str = 'procrustes'
 
 def embedding_similarity(vec1: np.ndarray, vec2: np.ndarray, method: str = "cosine", **kwargs) -> float:
     """
-    Compute similarity or distance between two embedding vectors.
+    Compute similarity or distance between two embedding vectors or sequences.
 
-    :param vec1: First embedding vector (np.ndarray).
-    :param vec2: Second embedding vector (np.ndarray).
+    Supports both:
+    - Single embeddings (1D arrays)
+    - Temporal embeddings (2D arrays: sequence_length × embedding_dim),
+      where similarity is computed per time-step and averaged.
+
+    :param vec1: First embedding or temporal embedding (np.ndarray).
+    :param vec2: Second embedding or temporal embedding (np.ndarray).
     :param method: Similarity method: 'cosine', 'euclidean', 'manhattan', or 'mahalanobis'.
     :param kwargs: Additional args for specific methods (e.g., 'cov' for Mahalanobis).
-    :return: A float score. Higher means more similar (for cosine), lower means more similar (for distances).
+    :return: (method_name, score)
+             - Higher is more similar for cosine
+             - Lower is more similar for distances
     """
     if vec1.shape != vec2.shape:
         raise ValueError(f"Vectors must be same shape. Got {vec1.shape} vs {vec2.shape}")
 
+    # If both are 2D (sequence case), compute per-frame similarity and average
+    if vec1.ndim == 2 and vec2.ndim == 2:
+        scores = []
+        for frame1, frame2 in zip(vec1, vec2):
+            _, score = embedding_similarity(frame1, frame2, method=method, **kwargs)
+            scores.append(score)
+        return method, float(np.mean(scores))
+
+    # --- Single vector similarity ---
     if method == "cosine":
         dot_product = np.dot(vec1, vec2)
         norm_a = np.linalg.norm(vec1)
         norm_b = np.linalg.norm(vec2)
         if norm_a == 0 or norm_b == 0:
-            return 0.0
-        return "cosine", dot_product / (norm_a * norm_b)
+            return "cosine", 0.0
+        return "cosine", float(dot_product / (norm_a * norm_b))
 
     elif method == "euclidean":
         diff = vec1 - vec2
-        return "euclidean", np.sqrt(np.sum(diff ** 2))
+        return "euclidean", float(np.sqrt(np.sum(diff ** 2)))
 
     elif method == "manhattan":
-        return "manhattan", np.sum(np.abs(vec1 - vec2))
+        return "manhattan", float(np.sum(np.abs(vec1 - vec2)))
 
     elif method == "mahalanobis":
         diff = vec1 - vec2
@@ -255,9 +271,8 @@ def embedding_similarity(vec1: np.ndarray, vec2: np.ndarray, method: str = "cosi
             inv_cov = np.linalg.inv(cov)
         except np.linalg.LinAlgError:
             raise ValueError("Covariance matrix is not invertible.")
-
         dist = np.dot(np.dot(diff.T, inv_cov), diff)
-        return "mahalanobis", np.sqrt(dist)
+        return "mahalanobis", float(np.sqrt(dist))
 
     else:
         raise NotImplementedError(f"Unknown method '{method}'.")

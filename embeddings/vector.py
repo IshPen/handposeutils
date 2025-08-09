@@ -6,6 +6,7 @@ from math import acos
 from typing import List
 from data.handpose import HandPose
 from data.coordinate import Coordinate
+from typing import Callable, Optional, Tuple
 
 
 def get_joint_angle_vector(pose: HandPose) -> np.ndarray:
@@ -112,11 +113,7 @@ def get_fused_pose_embedding(pose: HandPose) -> np.ndarray:
 
     return np.concatenate([angles, lengths, rel])
 
-# temporal.py
-import numpy as np
-from typing import Callable, Optional, Tuple
-from data.handpose_sequence import HandPoseSequence  # adjust import path to your package
-
+from data.handpose_sequence import HandPoseSequence
 
 def _sinusoidal_time_encoding(timestamps: np.ndarray, dim: int, time_scale: float = 1.0) -> np.ndarray:
     """

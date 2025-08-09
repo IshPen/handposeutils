@@ -143,7 +143,10 @@ class DataReader:
         '''
         sequence = []
         for item in json_data["sequence"]:
-            pose = DataReader.convert_json_to_HandPose(item["pose"])
+            try:
+                pose = DataReader.convert_json_to_HandPose(item["pose"])
+            except:
+                pose = DataReader.convert_json_to_HandPose(item)
             sequence.append(TimedHandPose(
                 pose=pose,
                 start_time=item["start_time"],
@@ -162,7 +165,7 @@ class DataReader:
                 {
                     "start_time": round(tp.start_time, 4),
                     "end_time": round(tp.end_time, 4),
-                    "hand_pose": DataReader.export_HandPose_to_json(tp.pose)
+                    "pose": DataReader.export_HandPose_to_json(tp.pose)
                 }
                 for tp in sequence
             ]
