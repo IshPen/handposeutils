@@ -7,7 +7,3 @@ Welcome to handposeutils’s documentation!
 
    modules
 
-API Reference
-=============
-.. automodule:: handposeutils
-    :members:

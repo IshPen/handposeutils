@@ -5,11 +5,20 @@ def vector_between(c1, c2):
     """
     Returns a NumPy vector from Coordinate c1 to c2.
 
-    :param c1: Coordinate object.
-    :param c2: Coordinate object.
-    :return: A NumPy array representing the vector from c1 to c2.
+    Parameters
+    ----------
+    c1 : Coordinate
+         First point (x,y,z)
+    c2 : Coordinate
+         Second point (x,y,z)
+
+    Returns
+    -------
+    np.array
+        A NumPy array representing the vector from c1 to c2.
     """
     return np.array([c2.x - c1.x, c2.y - c1.y, c2.z - c1.z])
+
 
 
 def get_finger_length(finger_name: str, pose) -> float:
