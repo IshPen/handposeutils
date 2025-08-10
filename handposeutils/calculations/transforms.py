@@ -4,6 +4,22 @@ import math
 from typing import Literal
 
 def normalize_handpose_positioning(pose: "HandPose") -> "HandPose":
+    """
+    Translates a hand pose so that its centroid is at the origin.
+
+    Each coordinate is shifted such that the average x, y, and z positions
+    across all landmarks are zero.
+
+    Parameters
+    ----------
+    pose : HandPose
+        The hand pose to normalize.
+
+    Returns
+    -------
+    HandPose
+        The translated hand pose, centered at the origin.
+    """
     coords = pose.get_all_coordinates()
     center_x = sum(c.x for c in coords) / len(coords)
     center_y = sum(c.y for c in coords) / len(coords)
@@ -16,6 +32,27 @@ def normalize_handpose_positioning(pose: "HandPose") -> "HandPose":
     return pose
 
 def normalize_handpose_scaling(pose: "HandPose") -> "HandPose":
+    """
+    Scales a hand pose to fit within a [-1, 1] cube across all axes.
+
+    The scaling is uniform and based on the largest axis range
+    (max range of x, y, or z coordinates).
+
+    Parameters
+    ----------
+    pose : HandPose
+        The hand pose to scale.
+
+    Returns
+    -------
+    HandPose
+        The uniformly scaled hand pose, preserving proportions.
+
+    Notes
+    -----
+    - If the maximum range is zero (all points are identical),
+      the pose is returned unchanged.
+    """
     coords = pose.get_all_coordinates()
     min_x = min(c.x for c in coords)
     max_x = max(c.x for c in coords)
@@ -39,11 +76,53 @@ def normalize_handpose_scaling(pose: "HandPose") -> "HandPose":
     return pose
 
 def normalize_handpose(pose: "HandPose") -> "HandPose":
+    """
+    Normalizes a hand pose's position and scale.
+
+    This function applies:
+    1. Translation so the centroid is at the origin.
+    2. Uniform scaling to fit in [-1, 1] on all axes.
+
+    Parameters
+    ----------
+    pose : HandPose
+        The hand pose to normalize.
+
+    Returns
+    -------
+    HandPose
+        The normalized hand pose.
+
+    See Also
+    --------
+    normalize_handpose_positioning()
+    normalize_handpose_scaling()
+    """
     pose = normalize_handpose_positioning(pose)
     pose = normalize_handpose_scaling(pose)
     return pose
 
 def mirror_pose(pose: "HandPose", axis: Literal['x', 'y', 'z'] = 'x') -> "HandPose":
+    """
+    Mirrors a hand pose across the specified axis.
+
+    Parameters
+    ----------
+    pose : HandPose
+        The hand pose to mirror.
+    axis : {'x', 'y', 'z'}, default='x'
+        Axis to mirror around.
+
+    Returns
+    -------
+    HandPose
+        The mirrored hand pose.
+
+    Raises
+    ------
+    ValueError
+        If the axis is not 'x', 'y', or 'z'.
+    """
     coords = pose.get_all_coordinates()
     for coord in coords:
         if axis == 'x':
@@ -57,6 +136,28 @@ def mirror_pose(pose: "HandPose", axis: Literal['x', 'y', 'z'] = 'x') -> "HandPo
     return pose
 
 def rotate_pose_by_axis(pose: "HandPose", degrees: float, axis: Literal['x', 'y', 'z']) -> "HandPose":
+    """
+    Rotates a hand pose by a given angle around a specified axis.
+
+    Parameters
+    ----------
+    pose : HandPose
+        The hand pose to rotate.
+    degrees : float
+        Rotation angle in degrees.
+    axis : {'x', 'y', 'z'}
+        Axis around which to rotate.
+
+    Returns
+    -------
+    HandPose
+        The rotated hand pose.
+
+    Raises
+    ------
+    ValueError
+        If the axis is not 'x', 'y', or 'z'.
+    """
     radians = math.radians(degrees)
     cos_a = math.cos(radians)
     sin_a = math.sin(radians)
@@ -78,11 +179,31 @@ def rotate_pose_by_axis(pose: "HandPose", degrees: float, axis: Literal['x', 'y'
     return pose
 
 def straighten_finger(pose, finger: str) -> "HandPose":
-    '''
-    :param pose: HandPose
-    :param finger: finger to straighten
-    :return: HandPose with finger straightened in the direction of
-    '''
+    """
+    Straightens a specified finger so that its joints align in a straight line.
+
+    The finger's base and first joint define the direction, and each joint
+    is repositioned proportionally along this direction, preserving
+    original segment lengths.
+
+    Parameters
+    ----------
+    pose : HandPose
+        The hand pose containing the finger to straighten.
+    finger : str
+        Finger name to straighten. Must match a key in
+        `handposeutils.data.constants.FINGER_MAPPING`.
+
+    Returns
+    -------
+    HandPose
+        The modified hand pose with the finger straightened.
+
+    Raises
+    ------
+    ValueError
+        If the finger name is invalid or has fewer than two joints.
+    """
     from handposeutils.data.constants import FINGER_MAPPING
     indices = FINGER_MAPPING.get(finger.upper())
     if not indices or len(indices) < 2:

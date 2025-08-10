@@ -1,6 +1,6 @@
 import json
 
-from handposeutils.data import DataReader
+from handposeutils.data.data_reader import DataReader
 from handposeutils.embeddings.vector import structured_temporal_embedding, flatten_temporal_embedding
 from handposeutils.embeddings.vector import get_fused_pose_embedding  # embedding function, or choose angle-based fn
 from handposeutils.calculations.similarity import embedding_similarity

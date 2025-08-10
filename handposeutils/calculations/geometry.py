@@ -23,10 +23,28 @@ def vector_between(c1, c2):
 
 def get_finger_length(finger_name: str, pose) -> float:
     """
-    Computes the total length of a finger by summing Euclidean distances between joints.
+    Calculate the total 3D length of a finger.
 
-    :param finger_name: Name of the finger ('thumb', 'index', etc.).
-    :return: float — total 3D length of the finger in the given pose.
+    Highkey, this information is pretty arbitrary, since unless you normalize scaling, absolute distances aren't
+    particularly useful, compared to relative distances.
+    TODO: write a relative bone length function. That would be more useful.
+
+    The length is computed by summing the Euclidean distances between
+    each pair of adjacent joints for the given finger.
+
+    Parameters
+    ----------
+    finger_name : str
+        Name of the finger (case-insensitive). Must be a key in
+        `handposeutils.data.constants.FINGER_MAPPING`
+        (e.g., "thumb", "index", "middle", "ring", "pinky").
+    pose : Pose
+        Hand pose object or sequence supporting index-based access to `Coordinate` objects.
+
+    Returns
+    -------
+    float
+        Total finger length in the same units as the pose coordinates.
     """
     finger_name = finger_name.upper()
     from handposeutils.data.constants import FINGER_MAPPING
@@ -42,10 +60,28 @@ def get_finger_length(finger_name: str, pose) -> float:
 
 def get_finger_segment_lengths(finger_name: str, pose) -> list[float]:
     """
-    Computes the individual segment lengths of a finger (proximal, intermediate, distal).
+    Get the individual segment lengths of a finger.
 
-    :param finger_name: Name of the finger.
-    :return: List of three floats representing segment lengths.
+    Returns the lengths of the proximal, intermediate, and distal segments
+    by computing Euclidean distances between successive joints.
+
+    Parameters
+    ----------
+    finger_name : str
+        Name of the finger (case-insensitive). Must be a key in
+        `handposeutils.data.constants.FINGER_MAPPING`.
+    pose : Pose
+        Hand pose object or sequence supporting index-based access to `Coordinate` objects.
+
+    Returns
+    -------
+    list of float
+        Three lengths (same units as coordinates), ordered from base to tip.
+
+    See Also
+    --------
+    get_finger_length
+        gets the summed length of the full finger
     """
     finger_name = finger_name.upper()
     from handposeutils.data.constants import FINGER_MAPPING
@@ -57,10 +93,22 @@ def get_finger_segment_lengths(finger_name: str, pose) -> list[float]:
 
 def get_finger_curvature(finger_name: str, pose) -> float:
     """
-    Estimates the average angular curvature of a finger.
+    Estimate the average angular curvature of a finger.
 
-    :param finger_name: Name of the finger.
-    :return: Float — average angle (in radians) between finger segments. Lower is straighter.
+    Curvature is measured as the mean angle (in radians) between consecutive
+    segment vectors. Lower values indicate a straighter finger.
+
+    Parameters
+    ----------
+    finger_name : str
+        Name of the finger (case-insensitive).
+    pose : Pose
+        Hand pose object or sequence supporting index-based access to `Coordinate` objects.
+
+    Returns
+    -------
+    float
+        Average curvature angle in radians.
     """
     finger_name = finger_name.upper()
     from handposeutils.data.constants import FINGER_MAPPING
@@ -84,9 +132,17 @@ def get_finger_curvature(finger_name: str, pose) -> float:
 
 def get_total_hand_span(pose) -> float:
     """
-    Measures total hand span between thumb tip and pinky tip.
+    Compute the Euclidean distance between thumb tip and pinky tip.
 
-    :return: Float distance between landmarks 4 and 20.
+    Parameters
+    ----------
+    pose : Pose
+        Hand pose object or sequence supporting index-based access to `Coordinate` objects.
+
+    Returns
+    -------
+    float
+        Distance between landmarks 4 (thumb tip) and 20 (pinky tip).
     """
     thumb_tip = pose[4]
     pinky_tip = pose[20]
@@ -96,9 +152,17 @@ def get_total_hand_span(pose) -> float:
 
 def get_finger_spread(pose) -> dict[str, float]:
     """
-    Measures the angular spread between adjacent fingers at their MCP joints.
+    Measure the angular spread between adjacent fingers at their MCP joints.
 
-    :return: Dict mapping each finger pair (e.g., "INDEX-MIDDLE") to angle in radians.
+    Parameters
+    ----------
+    pose : Pose
+        Hand pose object or sequence supporting index-based access to `Coordinate` objects.
+
+    Returns
+    -------
+    dict of str to float
+        Mapping from finger pair names (e.g., "INDEX-MIDDLE") to spread angle in radians.
     """
     base_indices = [5, 9, 13, 17]  # MCPs for index → pinky
     names = ["INDEX", "MIDDLE", "RING", "PINKY"]
@@ -123,9 +187,17 @@ def get_finger_spread(pose) -> dict[str, float]:
 
 def get_hand_aspect_ratio(pose) -> float:
     """
-    Calculates the aspect ratio (width/height) of the hand in XY plane.
+    Calculate the aspect ratio (width / height) of the hand in the XY plane.
 
-    :return: Float representing width divided by height.
+    Parameters
+    ----------
+    pose : Pose
+        Hand pose object
+
+    Returns
+    -------
+    float
+        Ratio of hand width to height in the XY plane.
     """
     coords = np.array([c.as_tuple() for c in pose.get_all_coordinates()])
     min_x, max_x = coords[:, 0].min(), coords[:, 0].max()
@@ -137,10 +209,22 @@ def get_hand_aspect_ratio(pose) -> float:
 
 def get_pose_flatness(pose, axis='z') -> float:
     """
-    Measures flatness of the pose as standard deviation along one axis.
+    Measure the flatness of the hand pose along a given axis.
 
-    :param axis: Axis to compute flatness along ('x', 'y', or 'z').
-    :return: Float — std deviation along axis; lower = flatter.
+    Flatness is defined as the standard deviation of all coordinates
+    along the specified axis.
+
+    Parameters
+    ----------
+    pose : Pose
+        Hand pose object with `get_all_coordinates()` method.
+    axis : {'x', 'y', 'z'}, optional
+        Axis along which to compute flatness. Default is 'z'.
+
+    Returns
+    -------
+    float
+        Standard deviation along the specified axis. Lower values mean flatter pose.
     """
     coords = np.array([c.as_tuple() for c in pose.get_all_coordinates()])
     axis_map = {'x': 0, 'y': 1, 'z': 2}
@@ -148,10 +232,19 @@ def get_pose_flatness(pose, axis='z') -> float:
 
 def get_joint_angle(triplet: tuple[int, int, int], pose) -> float:
     """
-    Computes the simple internal angle at the middle joint of a 3-point chain.
+    Compute the internal angle at the middle joint of a 3-point chain.
 
-    :param triplet: Tuple of 3 landmark indices (a, b, c) where b is the joint.
-    :return: Angle at point b in radians.
+    Parameters
+    ----------
+    triplet : tuple of int
+        Landmark indices (a, b, c) where `b` is the vertex joint.
+    pose : Pose
+        Hand pose object or sequence supporting index-based access to `Coordinate` objects.
+
+    Returns
+    -------
+    float
+        Angle at point `b` in radians.
     """
     a, b, c = (pose[i] for i in triplet)
     v1 = vector_between(b, a)
@@ -163,9 +256,20 @@ def get_joint_angle(triplet: tuple[int, int, int], pose) -> float:
 
 def get_palm_normal_vector(pose) -> np.ndarray:
     """
-    Returns the palm normal vector using three base landmarks.
+    Compute the palm normal vector using three base landmarks.
 
-    :return: A normalized NumPy 3D vector (wrist–index_mcp × wrist–pinky_mcp).
+    Uses the cross product of the wrist-to-index_mcp and wrist-to-pinky_mcp
+    vectors to obtain the palm's outward normal.
+
+    Parameters
+    ----------
+    pose : Pose
+        Hand pose object or sequence supporting index-based access to `Coordinate` objects.
+
+    Returns
+    -------
+    numpy.ndarray
+        Normalized 3D vector representing the palm normal.
     """
     a = np.array(pose[0].as_tuple())   # Wrist
     b = np.array(pose[5].as_tuple())   # Index MCP
@@ -179,9 +283,18 @@ def get_palm_normal_vector(pose) -> np.ndarray:
 
 def get_cross_finger_angles(pose) -> dict[str, float]:
     """
-    Measures the angle between direction vectors of adjacent fingers.
+    Measure the angle between direction vectors of adjacent fingers.
 
-    :return: Dict of angles (radians) between finger direction vectors.
+    Parameters
+    ----------
+    pose : Pose
+        Hand pose object or sequence supporting index-based access to `Coordinate` objects.
+
+    Returns
+    -------
+    dict of str to float
+        Mapping from adjacent finger name pairs (e.g., "THUMB-INDEX") to
+        angle in radians.
     """
     from handposeutils.data.constants import FINGER_MAPPING
     finger_names = ["THUMB", "INDEX", "MIDDLE", "RING", "PINKY"]

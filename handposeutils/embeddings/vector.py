@@ -11,12 +11,27 @@ from typing import Callable, Optional, Tuple
 
 def get_joint_angle_vector(pose: HandPose) -> np.ndarray:
     """
-    Generate a 15D joint-angle embedding vector for a HandPose.
-    Each finger contributes 3 angles: two intra-finger and one base-to-knuckle angle.
-    ||NORMALIZE HANDPOSE BEFORE EMBEDDING||
+    Generate a 15-dimensional joint-angle embedding vector from a HandPose.
 
-    :param pose: HandPose
-    :return: np.ndarray of shape (15,) containing angles in radians.
+    Each finger contributes three angles:
+    - Two intra-finger joint angles between consecutive bones
+    - One base-to-knuckle angle
+
+    The angles are measured in radians.
+
+    Note
+    ----
+    The HandPose should be normalized in position and scale before embedding
+
+    Parameters
+    ----------
+    pose : HandPose
+        Normalized hand pose from which to compute joint angles.
+
+    Returns
+    -------
+    np.ndarray
+        Array of shape (15,) containing joint angles in radians.
     """
 
     def compute_angle(a: Coordinate, b: Coordinate, c: Coordinate) -> float:
@@ -53,11 +68,25 @@ def get_joint_angle_vector(pose: HandPose) -> np.ndarray:
 
 def get_bone_length_vector(pose: HandPose) -> np.ndarray:
     """
-    Compute a 20D bone length vector from a HandPose, representing each bone segment.
-    ||NORMALIZE HANDPOSE BEFORE EMBEDDING||
+    Compute a 20-dimensional bone length vector from a HandPose.
 
-    :param pose: HandPose
-    :return: np.ndarray of shape (20,) containing bone lengths.
+    Each element corresponds to the Euclidean length of a bone segment
+    between two key landmarks.
+
+    Note
+    ----
+    The HandPose should be normalized in position and scale before embedding
+    to ensure consistent scale across samples.
+
+    Parameters
+    ----------
+    pose : HandPose
+        Normalized hand pose from which to compute bone lengths.
+
+    Returns
+    -------
+    np.ndarray
+        Array of shape (20,) representing lengths of each bone segment.
     """
     bone_pairs: List[tuple[int, int]] = [
         # Thumb
@@ -84,11 +113,24 @@ def get_bone_length_vector(pose: HandPose) -> np.ndarray:
 
 def get_relative_vector_embedding(pose: HandPose) -> np.ndarray:
     """
-    Compute a 63D vector of relative positions of each landmark from the wrist.
-    ||NORMALIZE HANDPOSE BEFORE EMBEDDING||
+    Compute a 63-dimensional vector of relative landmark positions to the wrist.
 
-    :param pose: HandPose
-    :return: np.ndarray of shape (63,) representing relative landmark positions.
+    For each of the 21 landmarks, compute the 3D coordinate offset relative to the wrist (landmark 0),
+    then flatten these relative coordinates into a single vector.
+
+    Note
+    ----
+    The HandPose should be normalized before embedding for consistent comparisons.
+
+    Parameters
+    ----------
+    pose : HandPose
+        Normalized hand pose to embed.
+
+    Returns
+    -------
+    np.ndarray
+        Flattened array of shape (63,), representing relative landmark positions.
     """
     wrist = pose[0]
     relative_coords = []
@@ -102,10 +144,27 @@ def get_relative_vector_embedding(pose: HandPose) -> np.ndarray:
 
 def get_fused_pose_embedding(pose: HandPose) -> np.ndarray:
     """
-    Compute a 98D vector of intrinsic hand qualities (joint angles-15D, bone length-20D, relative landmark locations-63D)
-    ||NORMALIZE HANDPOSE BEFORE EMBEDDING||
-    :param pose: HandPose
-    :return: np.ndarray of shape (98,), a full representation of hand qualities from a HandPose. 98D vector = 15D+20D+63D.
+    Compute a 98-dimensional fused embedding vector combining:
+    - 15D joint angles
+    - 20D bone lengths
+    - 63D relative landmark positions
+
+    This comprehensive vector captures intrinsic geometric and biomechanical
+    qualities of the hand pose.
+
+    Note
+    ----
+    Normalize the HandPose before calling this function for consistency.
+
+    Parameters
+    ----------
+    pose : HandPose
+        Normalized hand pose to encode.
+
+    Returns
+    -------
+    np.ndarray
+        Concatenated embedding vector of shape (98,).
     """
     angles = get_joint_angle_vector(pose)
     lengths = get_bone_length_vector(pose)
@@ -117,20 +176,26 @@ from handposeutils.data.handpose_sequence import HandPoseSequence
 
 def _sinusoidal_time_encoding(timestamps: np.ndarray, dim: int, time_scale: float = 1.0) -> np.ndarray:
     """
-    Continuous sinusoidal positional encoding (Transformer-style) adapted for timestamps.
+    Compute continuous sinusoidal positional encodings for a sequence of timestamps,
+    adapted from Transformer positional encodings.
+
+    Encoding dimension 'dim' determines the size of the embedding vector for each timestamp.
+    If 'dim' is odd, the last dimension is a sine component; otherwise, sine and cosine alternate.
 
     Parameters
     ----------
     timestamps : np.ndarray, shape (T,)
-        Time values in seconds.
+        1D array of time values in seconds.
     dim : int
-        Desired encoding dimension; if odd, last column uses sine.
-    time_scale : float
-        Scale factor that shifts the frequency spectrum. Larger = slower oscillations.
+        Dimensionality of the output encoding vector.
+    time_scale : float, optional
+        Frequency scaling factor for the encoding (default 1.0).
+        Larger values correspond to slower oscillations.
 
     Returns
     -------
-    enc : np.ndarray, shape (T, dim)
+    np.ndarray, shape (T, dim)
+        Sinusoidal positional encoding matrix where each row corresponds to a timestamp.
     """
     if timestamps.size == 0:
         return np.zeros((0, dim), dtype=float)
@@ -159,9 +224,23 @@ def _sinusoidal_time_encoding(timestamps: np.ndarray, dim: int, time_scale: floa
 def _compute_velocities(embeddings: np.ndarray, timestamps: Optional[np.ndarray] = None) -> np.ndarray:
     """
     Compute first-order temporal differences (velocities) of per-frame embeddings.
-    If timestamps provided, compute dt-scaled velocities: (e_t - e_{t-1}) / dt
 
-    Returns same shape as embeddings (T, D) with first row zeros.
+    If timestamps are provided, differences are scaled by the inverse of time intervals:
+    velocity at time t = (embedding_t - embedding_{t-1}) / delta_t
+
+    The first row is zero since no prior frame exists.
+
+    Parameters
+    ----------
+    embeddings : np.ndarray, shape (T, D)
+        Sequence of embeddings over time.
+    timestamps : Optional[np.ndarray], shape (T,), optional
+        Timestamps corresponding to each embedding frame. If None, uniform frame difference assumed.
+
+    Returns
+    -------
+    np.ndarray, shape (T, D)
+        Velocity vectors matching input embedding shape.
     """
     if embeddings.shape[0] == 0:
         return np.zeros_like(embeddings)
@@ -182,8 +261,22 @@ def _compute_velocities(embeddings: np.ndarray, timestamps: Optional[np.ndarray]
 
 def _uniform_downsample(array: np.ndarray, target_len: int) -> np.ndarray:
     """
-    Uniformly sample rows from `array` to length `target_len`.
-    If array shorter than target_len, returns array unchanged (padding handled elsewhere).
+    Uniformly sample rows from a 2D array to achieve a target length.
+
+    If the input array is shorter or equal in length to target_len,
+    the original array is returned unchanged.
+
+    Parameters
+    ----------
+    array : np.ndarray, shape (N, D)
+        Input array to downsample along the first dimension.
+    target_len : int
+        Desired length of the output array.
+
+    Returns
+    -------
+    np.ndarray, shape (target_len, D) or (N, D)
+        Downsampled array with uniformly spaced rows.
     """
     n = array.shape[0]
     if n <= target_len:
@@ -194,9 +287,24 @@ def _uniform_downsample(array: np.ndarray, target_len: int) -> np.ndarray:
 
 def _pca_reduce(matrix: np.ndarray, n_components: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Simple PCA using SVD. Returns (reduced, components, mean)
-    - matrix: shape (N, D)
-    - reduced: shape (N, n_components)
+    Helper to perform Principal Component Analysis (PCA) via SVD
+    to reduce dimensionality of a data matrix.
+
+    Parameters
+    ----------
+    matrix : np.ndarray, shape (N, D)
+        Input data matrix with N samples and D features.
+    n_components : int
+        Number of principal components to retain.
+
+    Returns
+    -------
+    reduced : np.ndarray, shape (N, n_components)
+        Data projected onto top principal components.
+    components : np.ndarray, shape (n_components, D)
+        Principal component vectors.
+    mean : np.ndarray, shape (D,)
+        Mean of the original data, used for centering.
     """
     if matrix.size == 0:
         return matrix.copy(), np.zeros((0, matrix.shape[1])), np.zeros((matrix.shape[1],))
@@ -221,34 +329,38 @@ def structured_temporal_embedding(
     verbose: bool = False
 ) -> np.ndarray:
     """
-    Build a structured temporal embedding for a HandPoseSequence.
+    Construct a structured temporal embedding for a HandPoseSequence.
+
+    Each frame is embedded by `pose_embedding_fn`, augmented with
+    sinusoidal positional encoding and optional velocity (temporal difference) embeddings.
+    Optionally downsamples frames, applies PCA for dimensionality reduction, and pads/truncates to `max_length`.
 
     Parameters
     ----------
     sequence : HandPoseSequence
-        Sequence object containing timed poses. Must expose `.sequence` (list of TimedHandPose)
-        and `get_all_timestamps()` returning list of start_times (float).
+        Sequence of timed hand poses.
     pose_embedding_fn : Callable[[HandPose], np.ndarray]
-        Function to compute a static embedding for a single HandPose.
-    max_length : Optional[int]
-        If provided, sequence will be truncated (or padded later) to this length.
-    include_velocity : bool
-        Whether to append first-order velocity vectors per frame.
-    time_scale : float
-        Scale factor for continuous positional encoding.
-    downsample : Optional[str]
-        If 'uniform', will uniformly sample frames if sequence longer than max_length.
-        If None, do not downsample (but truncation might still occur).
-    pca_components : Optional[int]
-        If provided, reduce per-frame dimension to `pca_components` using PCA.
-    verbose : bool
-        If True, print some debug info.
+        Function to compute static embedding for each HandPose frame.
+    max_length : Optional[int], optional
+        Target sequence length for output embeddings. Longer sequences are truncated or downsampled.
+        Shorter sequences are zero-padded.
+    include_velocity : bool, optional
+        Whether to append first-order velocity embeddings (default True).
+    time_scale : float, optional
+        Scale factor for sinusoidal time encoding frequencies (default 1.0).
+    downsample : Optional[str], optional
+        Method to downsample frames if sequence exceeds max_length.
+        'uniform' uniformly samples frames; None disables downsampling (default 'uniform').
+    pca_components : Optional[int], optional
+        If set, reduces per-frame embedding dimension to this number using PCA (default None).
+    verbose : bool, optional
+        If True, prints debug information (default False).
 
     Returns
     -------
-    embeddings_struct : np.ndarray, shape (T_out, D_out)
-        Structured embedding where T_out == max_length (if provided) else original seq length,
-        and D_out == per-frame-dim (pose_emb_dim [+ posenc_dim (same as pose_emb_dim)] [+ velocity dim]).
+    np.ndarray, shape (T_out, D_out)
+        Temporal embedding matrix with T_out = max_length (if specified) or sequence length,
+        and D_out = per-frame embedding dimension after augmentation.
     """
     # 1) Validate and extract
     seq_len = len(sequence)
@@ -331,17 +443,35 @@ def flatten_temporal_embedding(
     verbose: bool = False
 ) -> np.ndarray:
     """
-    Produce a flattened 1D temporal embedding by concatenating rows of structured embedding.
+    Compute a flattened 1D temporal embedding vector by concatenating all frames
+    from the structured temporal embedding.
 
-    Parameters mirror `structured_temporal_embedding`. Returns a 1D numpy array:
-    length = (max_length or seq_len) * per_frame_dim
+    This produces a fixed-size vector suitable for ML models requiring fixed-length input.
 
-    WARNING: If max_length is None and sequences differ in length, returned vectors will differ in size.
-    For most ML tasks, pass a fixed max_length to ensure fixed-size outputs.
+    Parameters
+    ----------
+    sequence : HandPoseSequence
+        Sequence of timed hand poses.
+    pose_embedding_fn : Callable[[HandPose], np.ndarray]
+        Function to compute static embedding for each HandPose frame.
+    max_length : Optional[int], optional
+        Target sequence length for truncation/padding (default 30).
+    include_velocity : bool, optional
+        Whether to append velocity embeddings (default True).
+    time_scale : float, optional
+        Frequency scale for positional encoding (default 1.0).
+    downsample : Optional[str], optional
+        Downsampling method for longer sequences (default 'uniform').
+    pca_components : Optional[int], optional
+        Dimensionality for PCA reduction (default None).
+    verbose : bool, optional
+        If True, prints debug information (default False).
 
     Returns
     -------
-    flat : np.ndarray, shape (T_out * D_out,)
+    np.ndarray, shape (T_out * D_out,)
+        Flattened temporal embedding vector, where T_out is max_length or sequence length,
+        and D_out is embedding dimension per frame after augmentation.
     """
     structured = structured_temporal_embedding(
         sequence=sequence,

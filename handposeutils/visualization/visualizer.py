@@ -4,7 +4,27 @@ from scipy.spatial import ConvexHull
 import time
 
 class HandPoseVisualizer:
+    """
+    Visualizer for hand poses using Open3D.
+
+    Attributes
+    ----------
+    window_name : str
+        Name of the Open3D visualization window.
+    colors : dict
+        Color profile for landmarks, ligaments, and palm.
+    """
     def __init__(self, window_name="Hand Pose Visualizer", color_profile: dict = None):
+        """
+        Initialize visualizer window and default colors.
+
+        Parameters
+        ----------
+        window_name : str, optional
+            Title of the visualization window.
+        color_profile : dict, optional
+            Custom colors for different hand parts.
+        """
         self.window_name = window_name
         self.vis = o3d.visualization.Visualizer()
         self.window_created = False
@@ -42,6 +62,14 @@ class HandPoseVisualizer:
 
 
     def set_hand_poses(self, hand_pose_list):
+        """
+        Set the list of HandPose objects to visualize.
+
+        Parameters
+        ----------
+        hand_pose_list : list
+            List of HandPose instances.
+        """
         if len(self.hand_poses) != len(hand_pose_list):
             self.cache_initialized = False
             self._reset_geometry()
@@ -49,15 +77,61 @@ class HandPoseVisualizer:
 
 
     def set_colors(self, colors: dict):
+        """
+        Update color profile for visualization.
+
+        Parameters
+        ----------
+        colors : dict
+            Colors to use for landmarks, ligaments, and palm.
+        """
         self.colors = colors
 
     def __create_sphere(self, center, radius=1.0, resolution=5, color=None):
+        """
+        Create a colored sphere mesh at a given center.
+
+        Parameters
+        ----------
+        center : array-like
+            3D coordinates for sphere center.
+        radius : float, optional
+            Sphere radius.
+        resolution : int, optional
+            Sphere resolution/detail.
+        color : array-like, optional
+            RGB color for the sphere.
+
+        Returns
+        -------
+        o3d.geometry.TriangleMesh
+            Sphere mesh.
+        """
         sphere = o3d.geometry.TriangleMesh.create_sphere(radius, resolution=resolution)
         sphere.translate(center)
         sphere.paint_uniform_color(color or self.colors["landmarks"])
         return sphere
 
     def __create_cylinder_between(self, p1, p2, radius=0.8, resolution=5, color=[1, 0, 0]):
+        """
+        Create a cylinder mesh connecting points p1 and p2.
+
+        Parameters
+        ----------
+        p1, p2 : array-like
+            3D endpoints of the cylinder.
+        radius : float, optional
+            Cylinder radius.
+        resolution : int, optional
+            Mesh resolution.
+        color : array-like, optional
+            RGB color of the cylinder.
+
+        Returns
+        -------
+        o3d.geometry.TriangleMesh or None
+            Cylinder mesh or None if zero-length.
+        """
         p1 = np.array(p1, dtype=np.float64)
         p2 = np.array(p2, dtype=np.float64)
         axis = p2 - p1
@@ -83,6 +157,18 @@ class HandPoseVisualizer:
         return cylinder
 
     def _build_geometry(self, finger_tips_shown=True, ligaments_shown=True, palm_shown=True):
+        """
+        Build Open3D geometry for current hand poses.
+
+        Parameters
+        ----------
+        finger_tips_shown : bool, optional
+            Whether to show landmark spheres.
+        ligaments_shown : bool, optional
+            Whether to show ligament cylinders.
+        palm_shown : bool, optional
+            Whether to show palm mesh.
+        """
         self.geometry.clear()
 
         for hand_pose in self.hand_poses:
@@ -146,19 +232,44 @@ class HandPoseVisualizer:
 
 
     def show_pose(self, finger_tips_shown=True, ligaments_shown=True, palm_shown=True):
+        """
+        Display the current hand poses in an interactive Open3D window.
+
+        Parameters
+        ----------
+        finger_tips_shown : bool, optional
+            Show landmark spheres.
+        ligaments_shown : bool, optional
+            Show ligament cylinders.
+        palm_shown : bool, optional
+            Show palm mesh.
+        """
+
         self.initialize_window()
 
         if not self.hand_poses:
             print("[!] No pose to show.")
             return
 
-        self.build_cached_geometry(self.hand_poses)  # ✅ List of poses!
+        self.build_cached_geometry(self.hand_poses)  # List of poses
 
         print("[🖱️] Use left mouse to rotate, right mouse to pan, scroll to zoom. Press 'q' to quit.")
         self.vis.run()
         self.vis.destroy_window()
 
     def update_pose(self, finger_tips_shown=True, ligaments_shown=True, palm_shown=True):
+        """
+        Update the visualization with the current hand poses.
+
+        Parameters
+        ----------
+        finger_tips_shown : bool, optional
+            Show landmark spheres.
+        ligaments_shown : bool, optional
+            Show ligament cylinders.
+        palm_shown : bool, optional
+            Show palm mesh.
+        """
         if not self.hand_poses:
             return
 
@@ -168,6 +279,7 @@ class HandPoseVisualizer:
         self.update_cached_geometry(self.hand_poses)
 
     def _reset_geometry(self):
+        """Clear all cached geometries and reset visualizer."""
         self.geometry = []
         self.landmark_spheres = []
         self.ligament_cylinders = []
@@ -175,6 +287,7 @@ class HandPoseVisualizer:
         self.vis.clear_geometries()
 
     def close(self):
+        """Close the Open3D visualization window."""
         try:
             self.vis.destroy_window()
             self.window_created = False
@@ -182,11 +295,24 @@ class HandPoseVisualizer:
             raise e
 
     def play_sequence(self, hand_pose_sequence, fps=30, loop=False):
+        """
+        Play a timed sequence of hand poses as animation.
+
+        Parameters
+        ----------
+        hand_pose_sequence : list
+            HandPoseSequence to play.
+        fps : int, optional
+            Frames per second playback rate.
+        loop : bool, optional
+            Whether to loop playback indefinitely. Defaults to false.
+        """
+
         self.initialize_window()
         frame_duration = 1.0 / fps
         index = 0
 
-        print(f"[▶️] Playing sequence at {fps} FPS...")
+        print(f"[Visualizer] Playing sequence at {fps} FPS...")
 
         # === Build geometry from the first pose ===
         if len(hand_pose_sequence) == 0:
@@ -212,9 +338,17 @@ class HandPoseVisualizer:
                 time.sleep(frame_duration)
                 index += 1
         except KeyboardInterrupt:
-            print("[⏹️] Playback interrupted.")
+            print("[Visualizer] Playback interrupted.")
 
     def build_cached_geometry(self, hand_poses):
+        """
+        Build and cache Open3D geometry for a list of hand poses.
+
+        Parameters
+        ----------
+        hand_poses : list
+            List of HandPose instances.
+        """
         if not isinstance(hand_poses, list):
             raise TypeError(f"[Visualizer] Expected list of HandPose, got {type(hand_poses)}")
 
@@ -275,6 +409,14 @@ class HandPoseVisualizer:
         self.cache_initialized = True
 
     def update_cached_geometry(self, hand_poses):
+        """
+        Update cached geometry meshes with new hand pose coordinates.
+
+        Parameters
+        ----------
+        hand_poses : list
+            List of HandPose instances.
+        """
         if len(hand_poses) != len(self.landmark_spheres):
             self._reset_geometry()
             # self.build_cached_geometry(hand_poses)
@@ -317,6 +459,21 @@ class HandPoseVisualizer:
         self.vis.update_renderer()
 
     def _compute_pose_scale(self, hand_pose):
+        """
+        Helper to compute scale factor for a hand pose based on bounding box size.
+        This is necessary to normalize sphere/cylinder sizes when displaying non-normalized HandPoses.
+        TODO: This function is still being fixed and handposes may not always be rescaled, it'll be added to the issue tracker.
+
+        Parameters
+        ----------
+        hand_pose : HandPose
+            Single hand pose.
+
+        Returns
+        -------
+        float
+            Maximum span of pose coordinates across x, y, z axes.
+        """
         coords = hand_pose.get_all_coordinates()
         min_x = min(c.x for c in coords)
         max_x = max(c.x for c in coords)
@@ -333,13 +490,18 @@ class HandPoseVisualizer:
 
     def visualize_pose_similarity(self, pose1, pose2, method='euclidean', offset=False):
         """
-        Visualize the similarity between two HandPose instances using color-coded landmarks.
-        Per-coordinate similarity doesn't work for Procrustes, since Procrustes is a global similarity score, rather than pairwise.
+        Visualize similarity between two hand poses via color-coded landmarks.
 
-        :param pose1 (HandPose): First pose (reference).
-        :param pose2 (HandPose): Second pose (to compare).
-        :param method (str): Currently only 'euclidean' is supported.
-        :param offset (bool): Whether to offset the second pose along the x-axis for comparison.
+        Parameters
+        ----------
+        pose1 : HandPose
+            Reference pose.
+        pose2 : HandPose
+            Pose to compare.
+        method : str, optional
+            Similarity method, currently supports 'euclidean', 'cosine', and 'joint_angle'.
+        offset : bool, optional
+            Offset second pose along x-axis for side-by-side comparison.
         """
         if not pose1 or not pose2:
             raise ValueError("Both poses must be provided.")
@@ -396,7 +558,19 @@ class HandPoseVisualizer:
 
     def error_to_color(self, error, max_error):
         """
-        Map error to RGB color. Red = max error, Blue = no error.
+        Convert an error value to an RGB color between blue (low) and red (high).
+
+        Parameters
+        ----------
+        error : float
+            Error magnitude.
+        max_error : float
+            Maximum error value for normalization.
+
+        Returns
+        -------
+        tuple
+            RGB color tuple.
         """
         ratio = np.clip(error / max_error, 0.0, 1.0)
         return (ratio, 0.0, 1.0 - ratio)

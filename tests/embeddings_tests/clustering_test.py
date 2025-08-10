@@ -5,7 +5,7 @@ from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 
-from handposeutils.data import DataReader
+from handposeutils.data.data_reader import DataReader
 from handposeutils.embeddings.vector import get_fused_pose_embedding
 
 

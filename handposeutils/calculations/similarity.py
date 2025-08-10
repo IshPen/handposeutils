@@ -4,15 +4,40 @@ from handposeutils.data.handpose import HandPose
 
 def procrustes_alignment(pose1: HandPose, pose2: HandPose) -> Tuple[np.ndarray, np.ndarray, float]:
     """
-    Perform Procrustes alignment between two HandPose objects.
+    Perform Procrustes alignment between two 3D hand poses.
 
-    This aligns pose1 to pose2 by removing translation, scale, and rotation,
-    and returns the aligned poses and their similarity score.
+    The alignment process removes translation, scale, and rotation differences
+    between two `HandPose` objects, returning their aligned coordinates and
+    the Procrustes distance (sum of squared differences).
 
-    :param pose1: First HandPose
-    :param pose2: Second HandPose
+    It is STRONGLY recommended to normalize HandPoses before computing Euclidean distance.
 
-    :returns (aligned_pose1, aligned_pose2, distance) — aligned numpy arrays and Procrustes distance
+    Parameters
+    ----------
+    pose1 : HandPose
+        First hand pose to align.
+    pose2 : HandPose
+        Second hand pose to align against.
+
+    Returns
+    -------
+    aligned_pose1 : ndarray of shape (n_landmarks, 3)
+        Aligned version of `pose1` after Procrustes transformation.
+    aligned_pose2 : ndarray of shape (n_landmarks, 3)
+        Normalized version of `pose2` for comparison.
+    distance : float
+        Procrustes distance between aligned poses. Lower values indicate
+        greater similarity.
+
+    Raises
+    ------
+    ValueError
+        If the number of landmarks (or their dimensionality) differs between poses.
+
+    Notes
+    -----
+    - This method uses the Kabsch algorithm to compute the optimal rotation.
+    - The Procrustes distance is **not** invariant to landmark correspondence errors.
     """
 
     # Step 1: Convert HandPoses to N x 3 numpy arrays
@@ -51,16 +76,31 @@ def procrustes_alignment(pose1: HandPose, pose2: HandPose) -> Tuple[np.ndarray, 
 
 def euclidean_distance(pose1: HandPose, pose2: HandPose) -> float:
     """
-    Compute the mean Euclidean distance between two HandPose objects.
+    Compute the mean Euclidean distance between two hand poses.
 
-    This is a simple, direct comparison of the spatial distance between
-    each corresponding landmark. Sensitive to translation and scale.
+    This function calculates the average distance between corresponding
+    landmarks of two `HandPose` objects. Distances are computed directly
+    in 3D space and are sensitive to both scale and translation.
 
+    It is STRONGLY recommended to normalize HandPoses before computing Euclidean distance.
 
-    :param pose1: First HandPose.
-    :param pose2: Second HandPose.
+    Parameters
+    ----------
+    pose1 : HandPose
+        First hand pose.
+    pose2 : HandPose
+        Second hand pose.
 
-    :returns Mean Euclidean distance (float). Lower = more similar.
+    Returns
+    -------
+    mean_distance : float
+        Mean Euclidean distance between corresponding landmarks. Lower values
+        indicate greater similarity.
+
+    Raises
+    ------
+    ValueError
+        If the number of landmarks (or their dimensionality) differs between poses.
     """
     p1 = np.array([coord.as_tuple() for coord in pose1.get_all_coordinates()])
     p2 = np.array([coord.as_tuple() for coord in pose2.get_all_coordinates()])
@@ -73,18 +113,32 @@ def euclidean_distance(pose1: HandPose, pose2: HandPose) -> float:
 
 def cosine_similarity(pose1: HandPose, pose2: HandPose) -> float:
     """
-    Compute cosine similarity between two HandPose objects.
+    Compute cosine similarity between two 3D hand poses.
 
-    Converts poses to flattened 63D vectors (21 landmarks × 3D),
-    then computes angular similarity between them.
+    Each pose is represented as a flattened 63-dimensional vector
+    (21 landmarks × 3 coordinates). The cosine similarity measures the
+    angular difference between the vectors, making it invariant to scale
+    but not to translation, so position is first normalized.
 
-    Cosine similarity is scale-invariant but not translation-invariant,
-    so translation is normalized.
+    Parameters
+    ----------
+    pose1 : HandPose
+        First hand pose.
+    pose2 : HandPose
+        Second hand pose.
 
-    :param pose1: First HandPose.
-    :param pose2: Second HandPose.
+    Returns
+    -------
+    similarity : float
+        Cosine similarity in the range [-1, 1].
+        - `1.0` indicates identical orientation.
+        - `0.0` indicates orthogonal poses.
+        - `-1.0` indicates opposite orientation.
 
-    :returns Cosine similarity (float), in [-1, 1]. Higher = more similar. 1 = identical direction.
+    Notes
+    -----
+    - This method normalizes translation by centering poses before comparison.
+    - Similarity is undefined for zero-length pose vectors (returns 0.0).
     """
     pose1.normalize_position()
     pose2.normalize_position()
@@ -104,11 +158,21 @@ def cosine_similarity(pose1: HandPose, pose2: HandPose) -> float:
 
 def _joint_angle_descriptor(pose: HandPose) -> List[float]:
     """
-    Extract joint angles (in radians) from a hand pose. Angles are measured
-    between consecutive segments in each finger, forming a compact descriptor.
+    Helper to extract joint angles in radians from a hand pose.
 
-    Returns:
-        List of angles (floats in radians), one for each joint.
+    The angles are calculated between consecutive segments in each finger,
+    forming a compact biomechanical descriptor of the pose.
+
+    Parameters
+    ----------
+    pose : HandPose
+        The hand pose to describe. Must contain 21 landmarks in MediaPipe format.
+
+    Returns
+    -------
+    list of float
+        List of joint angles in radians, ordered finger by finger.
+        Each value corresponds to the angle at a specific finger joint.
     """
     angles = []
     finger_joints = {
@@ -144,10 +208,39 @@ def _joint_angle_descriptor(pose: HandPose) -> List[float]:
 
 def joint_angle_similarity(pose1: HandPose, pose2: HandPose) -> float:
     """
-    Compares two hand poses based on their joint angles (biomechanical similarity).
-    Lower values = more similar poses.
+    Computes biomechanical similarity between two hand poses using joint angles.
 
-    :returns Mean squared difference between joint angles (float).
+    The joint angles of each pose are extracted and compared using mean squared
+    difference. Lower values indicate more similar poses.
+
+    Parameters
+    ----------
+    pose1 : HandPose
+        First hand pose.
+    pose2 : HandPose
+        Second hand pose.
+
+    Returns
+    -------
+    float
+        Mean squared difference between joint angles.
+        A value of 0.0 indicates identical angles.
+
+    Raises
+    ------
+    ValueError
+        If the angle descriptors have different lengths.
+
+    Notes
+    -----
+    - Useful in determining similarity in joint curvature across regions of the hand,
+    when used consecutively.
+    - Can represent the same information as geometry.get_finger_curvature() when multiple function calls are fused.
+
+    See Also
+    --------
+    geometry.get_finger_curvature()
+
     """
     angles1 = _joint_angle_descriptor(pose1)
     angles2 = _joint_angle_descriptor(pose2)
@@ -160,8 +253,22 @@ def joint_angle_similarity(pose1: HandPose, pose2: HandPose) -> float:
 
 def compute_joint_angle_errors(pose1: HandPose, pose2: HandPose) -> List[float]:
     """
-    Compute absolute angle differences (in radians) for each finger joint between two poses.
-    Assumes MediaPipe 21-landmark format.
+    Computes per-joint absolute angle differences between two hand poses.
+
+    This method assumes the standard 21-landmark MediaPipe format. Angles are
+    measured in radians for each consecutive finger joint triplet.
+
+    Parameters
+    ----------
+    pose1 : HandPose
+        First hand pose.
+    pose2 : HandPose
+        Second hand pose.
+
+    Returns
+    -------
+    list of float
+        Absolute differences in radians for each joint, ordered finger by finger.
     """
     from math import acos
     from numpy.linalg import norm
@@ -195,13 +302,34 @@ def compute_joint_angle_errors(pose1: HandPose, pose2: HandPose) -> List[float]:
 
 def pose_similarity(pose1: HandPose, pose2: HandPose, method: str = 'procrustes') -> float:
     """
-    Compute similarity between two HandPose objects.
+    Computes similarity between two hand poses using the specified method.
 
-    Supported methods:
-        - 'procrustes': Procrustes distance (lower = more similar)
+    Supported methods
+    -----------------
+    - 'procrustes': Procrustes distance (lower = more similar)
+    - 'euclidean' : Euclidean distance
+    - 'cosine'    : Cosine similarity
+    - 'joint_angle': Mean squared joint angle difference
 
+    Parameters
+    ----------
+    pose1 : HandPose
+        First hand pose.
+    pose2 : HandPose
+        Second hand pose.
+    method : str, default='procrustes'
+        Similarity computation method.
 
-    :returns float: similarity score
+    Returns
+    -------
+    float
+        Similarity score according to the chosen method.
+        Scale and interpretation vary depending on the method.
+
+    Raises
+    ------
+    NotImplementedError
+        If the given method is not supported.
     """
     if method == 'procrustes':
         _, _, distance = procrustes_alignment(pose1, pose2)
@@ -220,20 +348,43 @@ def pose_similarity(pose1: HandPose, pose2: HandPose, method: str = 'procrustes'
 
 def embedding_similarity(vec1: np.ndarray, vec2: np.ndarray, method: str = "cosine", **kwargs) -> float:
     """
-    Compute similarity or distance between two embedding vectors or sequences.
+    Computes similarity or distance between two embedding vectors or sequences.
 
-    Supports both:
+    Supports:
     - Single embeddings (1D arrays)
-    - Temporal embeddings (2D arrays: sequence_length × embedding_dim),
-      where similarity is computed per time-step and averaged.
+    - Temporal embeddings (2D arrays of shape [sequence_length, embedding_dim]),
+      where similarity is computed per frame and averaged.
 
-    :param vec1: First embedding or temporal embedding (np.ndarray).
-    :param vec2: Second embedding or temporal embedding (np.ndarray).
-    :param method: Similarity method: 'cosine', 'euclidean', 'manhattan', or 'mahalanobis'.
-    :param kwargs: Additional args for specific methods (e.g., 'cov' for Mahalanobis).
-    :return: (method_name, score)
-             - Higher is more similar for cosine
-             - Lower is more similar for distances
+    Parameters
+    ----------
+    vec1 : numpy.ndarray
+        First embedding vector or sequence.
+    vec2 : numpy.ndarray
+        Second embedding vector or sequence.
+    method : str, default="cosine"
+        Method to compute similarity. Options:
+        - 'cosine'
+        - 'euclidean'
+        - 'manhattan'
+        - 'mahalanobis'
+    **kwargs
+        Additional parameters for specific methods. For example:
+        - cov : numpy.ndarray
+            Covariance matrix for Mahalanobis distance.
+
+    Returns
+    -------
+    tuple of (str, float)
+        The method name and the computed similarity or distance score.
+        For cosine similarity, higher is more similar.
+        For distances, lower is more similar.
+
+    Raises
+    ------
+    ValueError
+        If vectors have different shapes, or covariance matrix shape is invalid.
+    NotImplementedError
+        If the given method is not supported.
     """
     if vec1.shape != vec2.shape:
         raise ValueError(f"Vectors must be same shape. Got {vec1.shape} vs {vec2.shape}")
