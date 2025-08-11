@@ -3,3 +3,4 @@
 A lightweight Python utility package for 3D hand pose analysis and visualization. Designed for researchers, the package provides a unified set of tools for analyzing and visualizing hand poses, calculating pose similarity, creating space-independent and spatio-temporal embeddings for model training, and transforming and storing hand pose data. 
 
 **Package Architecture Diagram Here**: [Diagram](https://www.mermaidchart.com/app/projects/1f95843c-6f72-4ded-93d7-f74cb1addb66/diagrams/6bb81c76-d141-49a9-a1af-32a0b32b51c9/version/v0.1/edit)
+**Documentation Here**: https://handposeutils.readthedocs.io/
