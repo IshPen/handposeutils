@@ -4,12 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "handposeutils"
-version = "0.1.5"
+version = "0.1.6"
 description = "Utilities for hand pose processing"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
-  { name="Ishan Pendyala", email="pendyala.ishan@gmail.com" }
+  { name="Ishan Pendyala", email="pendyala.ishan@gmail.com" },
+    {name="Ethan Praisoody", email="ethanpraisoody@gmail.com"}
 ]
 
 keywords = ["hand pose", "mediapipe", "3D visualization", "Open3D", "research"]
